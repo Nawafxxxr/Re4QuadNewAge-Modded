@@ -55,6 +55,7 @@ The goal of this project is to expand the editor's capabilities, improve the ove
 - **Ctrl + S** — Save.
 - **H** — Hide all objects except the selected object.
 - **F5** — Open Enemy Templates.
+- **Ctrl + D** — Duplicate.
 
 ### Improvements
 
