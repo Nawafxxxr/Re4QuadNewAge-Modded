@@ -43,7 +43,7 @@ namespace Re4QuadExtremeEditor.src.Forms
         public MultiSelectEditorForm(ref MultiSelectObjInfoToProperty objM)
         {
             InitializeComponent();
-            if (Globals.BackupConfigs != null && Globals.BackupConfigs.UseDarkerGrayTheme)
+            if (!UiTheme.IsLight)
                 DarkTheme.Apply(this);
 
             KeyPreview = true;

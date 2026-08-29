@@ -22,7 +22,7 @@ namespace Re4QuadExtremeEditor.src.Forms
         public AddNewObjForm()
         {
             InitializeComponent();
-            if (Globals.BackupConfigs != null && Globals.BackupConfigs.UseDarkerGrayTheme)
+            if (!UiTheme.IsLight)
                 DarkTheme.Apply(this);
 
             KeyPreview = true;

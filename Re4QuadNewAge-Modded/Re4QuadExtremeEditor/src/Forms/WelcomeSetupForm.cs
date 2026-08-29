@@ -1817,10 +1817,60 @@ namespace Re4QuadExtremeEditor.src.Forms
         {
             try
             {
+                string sxfile = txtXFILE?.Text;
+                string s2007 = txt2007?.Text;
+                string sps2 = txtPS2?.Text;
+                string suhd = txtUHD?.Text;
+                string sps4 = txtPS4NS?.Text;
+                string sc1 = txtCustom1?.Text;
+                string sc2 = txtCustom2?.Text;
+                string sc3 = txtCustom3?.Text;
+                string sudas = toolUdas?.Text;
+                string slfs = toolLfs?.Text;
+                string spack = toolPack?.Text;
+                string sgca = toolGca?.Text;
+                int savedLang = selectedLangIndex;
+                Color savedSky = selectedSkyColor;
+                int savedSkyIdx = selectedSkyIndex;
+                int savedStep = currentStep;
+                string savedDetect = lblDetect?.Text;
+
                 P.UpdateColors();
                 Background = P.BWindow;
+
+                wizardTextRefreshers.Clear();
+                Content = null;
+                pages = null;
+                chipBorders = null; chipNums = null; chipLabels = null; chipLines = null; chipDots = null;
+                skySwatches = null;
+                langDropdown = null; langDropdownText = null; langPopup = null; langListPanel = null;
+
+                BuildUi();
+
+                if (txtXFILE != null) txtXFILE.Text = sxfile ?? Globals.DirectoryXFILE;
+                if (txt2007 != null) txt2007.Text = s2007 ?? Globals.Directory2007RE4;
+                if (txtPS2 != null) txtPS2.Text = sps2 ?? Globals.DirectoryPS2RE4;
+                if (txtUHD != null) txtUHD.Text = suhd ?? Globals.DirectoryUHDRE4;
+                if (txtPS4NS != null) txtPS4NS.Text = sps4 ?? Globals.DirectoryPS4NSRE4;
+                if (txtCustom1 != null) txtCustom1.Text = sc1 ?? Globals.DirectoryCustom1;
+                if (txtCustom2 != null) txtCustom2.Text = sc2 ?? Globals.DirectoryCustom2;
+                if (txtCustom3 != null) txtCustom3.Text = sc3 ?? Globals.DirectoryCustom3;
+                if (toolUdas != null) toolUdas.Text = sudas ?? Globals.ToolPathUDAS;
+                if (toolLfs != null) toolLfs.Text = slfs ?? Globals.ToolPathLFS;
+                if (toolPack != null) toolPack.Text = spack ?? Globals.ToolPathPACK;
+                if (toolGca != null) toolGca.Text = sgca ?? Globals.ToolPathGCA;
+                if (lblDetect != null) lblDetect.Text = savedDetect ?? "";
+
+                selectedLangIndex = savedLang;
+                selectedSkyColor = savedSky;
+                selectedSkyIndex = savedSkyIdx;
+
+                UpdateLangDropdown();
+                RefreshLangItems();
                 RefreshSkySwatches();
-                try { UpdateLangDropdown(); } catch { }
+                ShowStepImmediate(savedStep);
+                RunWizardTextRefresh();
+                UpdateNavButtonText();
             }
             catch { }
         }

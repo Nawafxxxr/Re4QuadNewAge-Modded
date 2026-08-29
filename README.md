@@ -1,61 +1,108 @@
-# Re4QuadNewAge
-Re4 Quad Extreme Editor [NewAge] - The best Re4 editor
+# Re4QuadNewAge-Modded
 
-![](https://i.imgur.com/WvuAgHi.png)
+[![Version](https://img.shields.io/badge/Version-1.0.0-red?style=flat-square)](https://github.com/Nawafxxxr/Re4QuadNewAge-Modded/releases/latest)
+![Status](https://img.shields.io/badge/Status-Active-success?style=flat-square)
+[![Downloads](https://img.shields.io/github/downloads/Nawafxxxr/Re4QuadNewAge-Modded/total.svg?cacheSeconds=0)](https://github.com/Nawafxxxr/Re4QuadNewAge-Modded/releases)
 
-**Info:**
-<br>License: MIT Licence
-<br>Language: C#
-<br>Platform: Windows
-<br>Dependency: Microsoft .NET Framework 4.8
-<br>Requires openGL 3.3 or higher
+# About
 
-**Translate from Portuguese Brazil**
+**Re4QuadNewAge-Modded** is a heavily modified and modernized version of [**Re4QuadNewAge**](https://github.com/JADERLINK/Re4QuadNewAge), featuring major improvements, redesigned interfaces, modern themes, new tools, additional file format support, and workflow shortcuts designed to help modders create and manage mods faster and more efficiently.
 
-O "Re4 Quad Extreme Editor" é um programa voltado para a edição de arquivos do jogo "Resident Evil 4" (RE4). Ele permite a edição de vários arquivos ESL, ETS, ITA e AEV em um editor com visualização de cenário em 3D, compatível tanto com a versão clássica da Ubisoft (2005/2007), com a versão de PS2, quanto com a versão UHD da Steam (2014), e as versões de PS4 e Switch (NS)​. No qual agora conta com a visualização de modelos de cenários customizados/editados.
+This version introduces a refreshed and more modern editing experience, along with new functionality for handling additional file types such as **CAM, RTP, SMX, and AVL**.
 
-**Update 1.2.4**
-<br>Adicionado suporte parcial para edição do arquivo EFFBLOB (arquivo de Efeitos EFF);
+The goal of this project is to expand the editor's capabilities, improve the overall workflow, and provide modders with faster and more practical tools for Resident Evil 4 mod development.
 
-**Update 1.2.3**
-<br>Adicionado suporte parcial para edição do arquivo LIT;
+<img width="1920" height="1009" alt="1" src="https://github.com/user-attachments/assets/469157de-de87-418e-8a41-bc606b60ad7d" />
 
-**Update 1.2.2**
-<br>Implementadas as últimas mudanças do "JADERLINK_MODEL_VIEWER" da V.1.0.6;
-<br>Adicionado suporte para carregar modelos e cenários da versão de PS4 e NS do Re4;
-<br>Adicionado suporte parcial (adaptado) para os arquivos AEV/ITA da versão de PS4/NS;
-<br>Feitos pequenas mudanças/melhorias.
+---
 
-**Update 1.2.1**
-<br>Adicionado suporte para os arquivos .DSE e .QuadCustom
-<br>Adicionado suporte parcial para os arquivos FSE, EAR, SAR, ESE e EMI.
-<br>O arquivo "QuadCustom" é um arquivo próprio do programa, nele você pode ver a posição de objetos dos arquivos que o programa não pode abrir, além de possibilitar visualizar modelos personalizados.
+# Supported Platforms
 
-# Re4QuadExtremeEditor.exe
+- Windows 11
+- Windows 10
 
-Para abrir o programa, é necessário que sua placa de vídeo (GPU) tenha o OpenGL versão 3.3 ou superior. Caso sua versão seja inferior à requerida, o programa mostrará uma mensagem de erro.
+---
 
-# Para Desenvolvedores:
+# Fork Features
 
-**Como compilar a partir do código-fonte:**
+### New Functionality
 
-Requisitos: Visual Studio 2019 ou 2022, com suporte a Csharp;
-<br>O projeto conta com três .dlls externas que são baixadas via NuGet, as quais são:
-<br> OpenTK, versão: 3.3.3
-<br> OpenTK.GLControl, versão: 3.3.3
-<br> Newtonsoft.Json, versão: 13.0.3
-<br> Aviso: as outras dependências já estão presentes no código-fonte.
+- Added support for additional file formats:
+  - CAM
+  - AVL
+  - RTP
+  - SMX
+- Added Dark Mode.
+- Added Gizmo support for easier object manipulation.
+- Added FOV controls.
+- Added automatic file loading from rooms.
+- Added a new Project system.
+- Added **Save All**.
+- Added **Clear All**.
+- Added a new startup screen.
+- Added new shortcuts to improve the modding workflow.
+- Improved and redesigned several parts of the user interface.
+- Various additional improvements and features.
 
-# Código de terceiro:
+### New Shortcuts
 
-[JADERLINK_MODEL_VIEWER](https://github.com/JADERLINK/JADERLINK_MODEL_VIEWER).
-<br>[TGASharpLib by ALEXGREENALEX](https://github.com/ALEXGREENALEX/TGASharpLib).
-<br>[DDSReaderSharp by ALEXGREENALEX](https://github.com/ALEXGREENALEX/DDSReaderSharp).
-<br>[ScarletLibrary](https://github.com/xdanieldzd/Scarlet)
-<br>[OpenTK](https://github.com/opentk/opentk/blob/master/LICENSE.md).
-<br>[Newtonsoft.Json](https://github.com/JamesNK/Newtonsoft.Json/blob/master/LICENSE.md).
-<br>[Code Project](https://www.codeproject.com/info/cpol10.aspx)
+- **F** — Move the camera to the selected object.
+- **G** — Move the selected object to the camera/player position.
+- **E** — Enter the camera view when a camera object is selected.
+- **Alt + WASD** — Move slowly.
+- **Z** — Undo the previous action.
+- **Y** — Redo the previously undone action.
+- **Ctrl + S** — Save.
+- **H** — Hide all objects except the selected object.
+- **F5** — Open Enemy Templates.
 
------
-**At.te: JADERLINK**
-<br>2024-11-30
+### Improvements
+
+- Improved the overall user interface.
+- Redesigned several editor windows and menus.
+- Added more modern themes and visual improvements.
+- Improved the workflow for creating and editing mods.
+- Added useful shortcuts for faster navigation and editing.
+- Improved project and file management.
+- Added many quality-of-life improvements.
+
+And much more.
+
+---
+
+# Supported Games
+
+Currently supported:
+
+- **Resident Evil 4 Ultimate HD Edition (2014)**
+- **Resident Evil 4 PS4 (2016)**
+- **Resident Evil 4 PS2 (2005)**
+- **Resident Evil 4 Ubisoft (2007)**
+
+---
+
+# Notes
+
+- There is currently a known issue when switching from **Dark Mode** to **Light Mode**. Some interface elements may not update correctly until the application is restarted.
+
+---
+
+# Credits
+
+### Original Project
+
+- **[@JADERLINK](https://github.com/JADERLINK)** — Creator of the original project.
+
+Repository: https://github.com/JADERLINK/Re4QuadNewAge
+
+### Modded Version
+
+- **[Rxuf](https://github.com/Nawafxxxr)** — Creator and maintainer of **Re4QuadNewAge-Modded**.
+
+---
+
+# License
+
+This project is licensed under the **MIT License**.
+
+See the [LICENSE](LICENSE) file for more information.

@@ -13,7 +13,16 @@ namespace Re4QuadExtremeEditor
     /// </summary>
     internal static class DarkTheme
     {
-        private static bool _nativeDarkApplied;
+        // Per-HWND set of native controls already opted into Dark Mode. Unlike a
+        // process-wide one-shot flag, this lets lazily-created scrollbars, the
+        // PropertyGrid drop-down list, and secondary forms be themed whenever
+        // their handle first shows up, without re-applying to the same HWND on
+        // every Apply pass.
+        private static readonly HashSet<IntPtr> _nativeThemedHandles = new HashSet<IntPtr>();
+
+        // Per-form guard that stops EnsureDarkNativeHandles from force-creating
+        // handles for controls that were already scanned during an earlier Apply.
+        private static readonly HashSet<Form> _darkEnsuredForms = new HashSet<Form>();
 
         // Palette is served by UiTheme so Dark Mode and Light Mode are exact
         // mirrors of each other; these members keep the historical DarkTheme API.
@@ -63,14 +72,19 @@ namespace Re4QuadExtremeEditor
                     ToolStripManager.Renderer = DarkRenderer;
                 ApplyControl(form);
 
-                if (!UiTheme.IsLight && !_nativeDarkApplied)
+                if (!UiTheme.IsLight)
                 {
-                    EnsureDarkNativeHandles(form);
-                    _nativeDarkApplied = true;
+                    if (_darkEnsuredForms.Add(form))
+                    {
+                        form.Disposed -= DarkEnsuredForm_Disposed;
+                        form.Disposed += DarkEnsuredForm_Disposed;
+                        EnsureDarkNativeHandles(form);
+                    }
                 }
-                else if (UiTheme.IsLight && _nativeDarkApplied)
+                else
                 {
-                    _nativeDarkApplied = false;
+                    _darkEnsuredForms.Clear();
+                    _nativeThemedHandles.Clear();
                 }
 
                 form.Invalidate(true);
@@ -122,6 +136,17 @@ namespace Re4QuadExtremeEditor
                     RefreshNativeScrollbars(child);
             }
             catch { }
+        }
+
+        private static void NativeHandleDestroyed(object sender, EventArgs e)
+        {
+            if (sender is Control c && c.IsHandleCreated)
+                _nativeThemedHandles.Remove(c.Handle);
+        }
+
+        private static void DarkEnsuredForm_Disposed(object sender, EventArgs e)
+        {
+            _darkEnsuredForms.Remove(sender as Form);
         }
 
         private static void ThemeForm_HandleCreated(object sender, EventArgs e)
@@ -187,13 +212,13 @@ namespace Re4QuadExtremeEditor
 
             if (c is Re4QuadExtremeEditor.src.Controls.DarkGroupBox darkGroupBox)
             {
-                darkGroupBox.SetDarkMode(true);
+                darkGroupBox.SetDarkMode(!UiTheme.IsLight);
                 darkGroupBox.BackColor = Surface;
                 darkGroupBox.ForeColor = Text;
             }
             else if (c is Re4QuadExtremeEditor.src.Controls.DarkTabControl darkTabs)
             {
-                darkTabs.SetDarkMode(true);
+                darkTabs.SetDarkMode(!UiTheme.IsLight);
                 darkTabs.BackColor = Window;
                 darkTabs.ForeColor = Text;
             }
@@ -203,56 +228,69 @@ namespace Re4QuadExtremeEditor
                 // for MenuStrip. On some WinForms/Windows combinations it draws a
                 // bright focus/selection rectangle over File/Edit/View AFTER the
                 // ProfessionalColorTable, which is why the item can look white even
-                // though the renderer is configured correctly.
-                DisableVisualStyles(menu);
+                // though the renderer is configured correctly. Light Mode restores
+                // the native visual style so no dark painter stays behind.
+                if (UiTheme.IsLight)
+                    RestoreVisualStyles(menu);
+                else
+                    DisableVisualStyles(menu);
                 menu.BackColor = Surface;
                 menu.ForeColor = Text;
-                menu.Renderer = DarkRenderer;
+                menu.Renderer = UiTheme.IsLight ? null : DarkRenderer;
                 menu.ShowItemToolTips = true;
                 ApplyToolStripItems(menu.Items);
             }
             else if (c is ContextMenuStrip contextMenu)
             {
-                DisableVisualStyles(contextMenu);
+                if (UiTheme.IsLight)
+                    RestoreVisualStyles(contextMenu);
+                else
+                    DisableVisualStyles(contextMenu);
                 contextMenu.BackColor = Surface;
                 contextMenu.ForeColor = Text;
-                contextMenu.Renderer = DarkRenderer;
+                contextMenu.Renderer = UiTheme.IsLight ? null : DarkRenderer;
                 ApplyToolStripItems(contextMenu.Items);
             }
             else if (c is ToolStripDropDown dropDown)
             {
-                DisableVisualStyles(dropDown);
+                if (UiTheme.IsLight)
+                    RestoreVisualStyles(dropDown);
+                else
+                    DisableVisualStyles(dropDown);
                 dropDown.BackColor = Surface;
                 dropDown.ForeColor = Text;
-                dropDown.Renderer = DarkRenderer;
-                ConfigureDarkDropDown(dropDown);
+                dropDown.Renderer = UiTheme.IsLight ? null : DarkRenderer;
+                if (!UiTheme.IsLight)
+                    ConfigureDarkDropDown(dropDown);
                 ApplyToolStripItems(dropDown.Items);
             }
             else if (c is ToolStrip tool)
             {
                 tool.BackColor = Surface;
                 tool.ForeColor = Text;
-                tool.Renderer = DarkRenderer;
+                tool.Renderer = UiTheme.IsLight ? null : DarkRenderer;
                 ApplyToolStripItems(tool.Items);
             }
             else if (c is StatusStrip status)
             {
                 status.BackColor = Surface;
                 status.ForeColor = Text;
-                status.Renderer = DarkRenderer;
+                status.Renderer = UiTheme.IsLight ? null : DarkRenderer;
             }
             else if (c is TabControl tabs)
             {
                 tabs.BackColor = Surface;
                 tabs.ForeColor = Text;
-                tabs.DrawMode = TabDrawMode.OwnerDrawFixed;
+                bool lightTabs = UiTheme.IsLight;
+                tabs.DrawMode = lightTabs ? TabDrawMode.Normal : TabDrawMode.OwnerDrawFixed;
                 tabs.Appearance = TabAppearance.Normal;
-                tabs.SizeMode = TabSizeMode.Fixed;
+                tabs.SizeMode = lightTabs ? TabSizeMode.Normal : TabSizeMode.Fixed;
                 tabs.DrawItem -= DrawDarkTab;
-                tabs.DrawItem += DrawDarkTab;
+                if (!lightTabs)
+                    tabs.DrawItem += DrawDarkTab;
                 foreach (TabPage page in tabs.TabPages)
                 {
-                    page.UseVisualStyleBackColor = false;
+                    page.UseVisualStyleBackColor = lightTabs;
                     page.BackColor = Window;
                     page.ForeColor = Text;
                 }
@@ -269,12 +307,16 @@ namespace Re4QuadExtremeEditor
                 ApplyDarkNativeTheme(combo);
                 combo.BackColor = Input;
                 combo.ForeColor = Text;
-                combo.FlatStyle = FlatStyle.Flat;
-                // Owner draw removes the Windows-blue selected row from combo
-                // drop-down lists while preserving the ComboBox's normal behavior.
-                combo.DrawMode = DrawMode.OwnerDrawFixed;
+                bool lightCombo = UiTheme.IsLight;
+                combo.FlatStyle = lightCombo ? FlatStyle.Standard : FlatStyle.Flat;
+                // Owner draw (Dark Mode only) removes the Windows-blue selected row
+                // from combo drop-down lists while preserving ComboBox behavior.
+                // Light Mode returns to the native drop-down so no dark row styling
+                // stays behind after a live theme switch.
+                combo.DrawMode = lightCombo ? DrawMode.Normal : DrawMode.OwnerDrawFixed;
                 combo.DrawItem -= DrawDarkComboItem;
-                combo.DrawItem += DrawDarkComboItem;
+                if (!lightCombo)
+                    combo.DrawItem += DrawDarkComboItem;
             }
             else if (c is ListBox list)
             {
@@ -362,7 +404,10 @@ namespace Re4QuadExtremeEditor
                 group.BackColor = Surface;
                 group.ForeColor = Text;
                 group.FlatStyle = FlatStyle.Flat;
-                DisableVisualStyles(group);
+                if (UiTheme.IsLight)
+                    RestoreVisualStyles(group);
+                else
+                    DisableVisualStyles(group);
             }
             else if (c is Button button)
             {
@@ -371,7 +416,11 @@ namespace Re4QuadExtremeEditor
                 button.ForeColor = Text;
                 button.FlatStyle = FlatStyle.Flat;
                 button.FlatAppearance.BorderColor = Border;
-                button.FlatAppearance.MouseOverBackColor = Color.FromArgb(42, 47, 56);
+                // Hover uses the theme palette so it does not stay a dark charcoal
+                // in Light Mode after a live switch.
+                button.FlatAppearance.MouseOverBackColor = UiTheme.IsLight
+                    ? UiTheme.WinSurface3
+                    : Color.FromArgb(42, 47, 56);
                 button.FlatAppearance.MouseDownBackColor = AccentPressed;
             }
             else if (c is CheckBox check)
@@ -601,6 +650,14 @@ namespace Re4QuadExtremeEditor
             if (sender is PropertyGrid propertyGrid)
             {
                 ApplyDarkNativeTheme(propertyGrid);
+                // Ensure selection colors match the active theme even when the handle is recreated after a live switch.
+                propertyGrid.SelectedItemWithFocusBackColor = Selection;
+                propertyGrid.SelectedItemWithFocusForeColor = SelectionText;
+                propertyGrid.ViewBackColor = Input;
+                propertyGrid.ViewForeColor = Text;
+                propertyGrid.CategoryForeColor = Text;
+                propertyGrid.BackColor = Input;
+                propertyGrid.LineColor = Input;
                 ApplyPropertyGridInternalColors(propertyGrid);
                 foreach (Control child in propertyGrid.Controls)
                     ApplyControl(child);
@@ -613,8 +670,79 @@ namespace Re4QuadExtremeEditor
 
             control.HandleCreated -= DarkDynamicControl_HandleCreated;
             control.HandleCreated += DarkDynamicControl_HandleCreated;
+            control.ControlAdded -= DynamicControl_ControlAdded;
+            control.ControlAdded += DynamicControl_ControlAdded;
             foreach (Control child in control.Controls)
                 HookDarkModeDynamicChild(child);
+        }
+
+        private static void DynamicControl_ControlAdded(object sender, ControlEventArgs e)
+        {
+            if (e == null || e.Control == null) return;
+            HookDarkModeDynamicChild(e.Control);
+            ApplyControl(e.Control);
+            // PropertyGrid editors (the small TextBox for "TriggerZone Corner0.Z" etc.)
+            // are created on demand and the grid sets their BackColor to Window (white)
+            // *after* ControlAdded. Force the theme-correct color on the next pump.
+            // Also handle any TextBox/ComboBox editor that may be added elsewhere.
+            if (e.Control is TextBoxBase || e.Control is ComboBox)
+            {
+                try { e.Control.BeginInvoke(new Action(() => ForcePropertyGridEditorTheme(e.Control))); } catch { }
+                // For containers, also check children that may be editors
+                try { e.Control.BeginInvoke(new Action(() => { if (e.Control is Control c) ThemeActiveEditorsRecursive(c); })); } catch { }
+            }
+            else if (IsPropertyGridEditor(e.Control))
+            {
+                try { e.Control.BeginInvoke(new Action(() => ForcePropertyGridEditorTheme(e.Control))); } catch { }
+            }
+        }
+
+        private static void ThemeActiveEditorsRecursive(Control root)
+        {
+            foreach (Control c in root.Controls)
+            {
+                if (c is TextBoxBase || c is ComboBox) ForcePropertyGridEditorTheme(c);
+                if (c.Controls.Count > 0) ThemeActiveEditorsRecursive(c);
+            }
+        }
+
+        private static bool IsPropertyGridEditor(Control c)
+        {
+            if (c is TextBoxBase || c is ComboBox)
+            {
+                Control p = c.Parent;
+                while (p != null)
+                {
+                    if (p is PropertyGrid) return true;
+                    p = p.Parent;
+                }
+            }
+            return false;
+        }
+
+        private static void ForcePropertyGridEditorTheme(Control c)
+        {
+            if (c == null || c.IsDisposed) return;
+            try
+            {
+                // Diagnostic log for the "Tool created by: JADERLINK" black selection bug
+                try
+                {
+                    string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "theme_debug.log");
+                    string info = string.Format("[{0:HH:mm:ss}] ForceEditor IsLight={1} Input={2:X6} Text={3:X6} Ctrl={4} Handle={5} Parent={6}\r\n",
+                        DateTime.Now, UiTheme.IsLight, Input.ToArgb() & 0xFFFFFF, Text.ToArgb() & 0xFFFFFF,
+                        c.GetType().Name, c.IsHandleCreated ? c.Handle.ToString("X") : "0",
+                        c.Parent != null ? c.Parent.GetType().Name : "null");
+                    System.IO.File.AppendAllText(logPath, info);
+                }
+                catch { }
+                c.BackColor = Input;
+                c.ForeColor = Text;
+                if (c is TextBoxBase tb) tb.BorderStyle = BorderStyle.FixedSingle;
+                if (c.IsHandleCreated) ApplyDarkNativeTheme(c);
+                c.Invalidate(true);
+            }
+            catch { }
         }
 
         private static void DarkDynamicControl_HandleCreated(object sender, EventArgs e)
@@ -623,6 +751,10 @@ namespace Re4QuadExtremeEditor
             {
                 ApplyDarkNativeThemeRecursive(control);
                 ApplyControl(control);
+                if (IsPropertyGridEditor(control))
+                {
+                    try { control.BeginInvoke(new Action(() => ForcePropertyGridEditorTheme(control))); } catch { }
+                }
             }
         }
 
@@ -692,6 +824,22 @@ namespace Re4QuadExtremeEditor
         }
 
         /// <summary>
+        /// Re-enables the standard Windows theme on a control whose visual styles
+        /// had been disabled for Dark Mode. Needed when switching back to Light
+        /// Mode, otherwise MenuStrip/GroupBox stay in the disabled painter look.
+        /// </summary>
+        private static void RestoreVisualStyles(Control control)
+        {
+            if (!control.IsHandleCreated)
+                return;
+            try
+            {
+                SetWindowTheme(control.Handle, null, null);
+            }
+            catch { }
+        }
+
+        /// <summary>
         /// Uses the Windows dark common-control theme for native scrollbars.
         /// Without this, TreeView/PropertyGrid keep the Windows light scrollbar
         /// (the white strip visible at the right side of the panels).
@@ -699,40 +847,78 @@ namespace Re4QuadExtremeEditor
         /// </summary>
         internal static void ApplyDarkNativeTheme(Control control)
         {
-            if (UiTheme.IsLight) return;
-            if (_nativeDarkApplied) return;
             if (control == null || !control.IsHandleCreated)
                 return;
 
+            // Diagnostic for GridViewEdit black selection bug
             try
             {
-                // A MultiselectTreeView with DarkScrollBar enabled renders its own
-                // dark bar and suppresses the native non-client painter itself.
-                // Do not apply any theme class here; just make sure no themed
-                // painter can ever draw a second scrollbar on the HWND.
-                var ownedTree = control as NsMultiselectTreeView.MultiselectTreeView;
-                if (ownedTree != null && ownedTree.DarkScrollBar)
+                string cname = control.GetType().Name;
+                if (cname.IndexOf("GridViewEdit", StringComparison.OrdinalIgnoreCase) >= 0 || cname.IndexOf("TextBox", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    SetWindowTheme(control.Handle, string.Empty, string.Empty);
-                    return;
+                    string logPath2 = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "theme_debug.log");
+                    string info2 = string.Format("[{0:HH:mm:ss}] ApplyDarkNative IsLight={1} Ctrl={2} Handle={3:X} Parent={4}\r\n",
+                        DateTime.Now, UiTheme.IsLight, cname, control.Handle.ToInt64(), control.Parent != null ? control.Parent.GetType().Name : "null");
+                    System.IO.File.AppendAllText(logPath2, info2);
+                }
+            }
+            catch { }
+            // When Light Mode is active, undo any dark native common-control
+            // theme (DarkMode_ItemsView/DarkMode_Explorer + AllowDarkModeForWindow)
+            // that an earlier Dark Mode session applied. Without this the native
+            // edit/scrollbar/editor HWNDs keep their dark palette after a live
+            // Dark -> Light switch, leaving dark "residue" inside a light skin.
+            if (UiTheme.IsLight)
+            {
+                _nativeThemedHandles.Remove(control.Handle);
+                RevertNativeToLight(control);
+                return;
+            }
+
+            // Only apply the dark native theme once per HWND. New handles (created
+            // lazily: scrollbars, the PropertyGrid drop-down list, secondary
+            // windows) are not in the set yet, so they get themed on the pass
+            // that first sees them.
+            control.HandleDestroyed -= NativeHandleDestroyed;
+            control.HandleDestroyed += NativeHandleDestroyed;
+
+            // A MultiselectTreeView with DarkScrollBar enabled renders its own
+            // dark bar and suppresses the native non-client painter itself.
+            // Do not apply any theme class here; just make sure no themed
+            // painter can ever draw a second scrollbar on the HWND.
+            var ownedTree = control as NsMultiselectTreeView.MultiselectTreeView;
+            if (ownedTree != null && ownedTree.DarkScrollBar)
+            {
+                SetWindowTheme(control.Handle, string.Empty, string.Empty);
+                return;
+            }
+
+            bool alreadyThemed = !_nativeThemedHandles.Add(control.Handle);
+            try
+            {
+                if (!alreadyThemed)
+                {
+                    // First opt the individual common-control HWND into dark mode, then
+                    // apply the dark theme class. This is different from merely disabling
+                    // visual styles (which produces the bright classic white scrollbar).
+                    AllowDarkModeForWindow(control.Handle, true);
+                    // TreeView ignores the dark ScrollBar part of DarkMode_Explorer on
+                    // several Windows 10/11 builds and keeps a white strip. The
+                    // "DarkMode_ItemsView" class is the one that supplies the dark
+                    // ScrollBar part for item-view controls (TreeView/ListView), so it
+                    // is preferred for TreeView, with DarkMode_Explorer as fallback.
+                    bool isTree = control is TreeView;
+                    string darkClass = isTree ? "DarkMode_ItemsView" : "DarkMode_Explorer";
+                    string lightFallback = isTree ? "DarkMode_Explorer" : "Explorer";
+                    int hr = SetWindowTheme(control.Handle, darkClass, null);
+                    if (hr != 0)
+                        SetWindowTheme(control.Handle, lightFallback, null);
                 }
 
-                // First opt the individual common-control HWND into dark mode, then
-                // apply the dark theme class. This is different from merely disabling
-                // visual styles (which produces the bright classic white scrollbar).
-                AllowDarkModeForWindow(control.Handle, true);
-                // TreeView ignores the dark ScrollBar part of DarkMode_Explorer on
-                // several Windows 10/11 builds and keeps a white strip. The
-                // "DarkMode_ItemsView" class is the one that supplies the dark
-                // ScrollBar part for item-view controls (TreeView/ListView), so it
-                // is preferred for TreeView, with DarkMode_Explorer as fallback.
-                bool isTree = control is TreeView;
-                string darkClass = isTree ? "DarkMode_ItemsView" : "DarkMode_Explorer";
-                string lightFallback = isTree ? "DarkMode_Explorer" : "Explorer";
-                int hr = SetWindowTheme(control.Handle, darkClass, null);
-                if (hr != 0)
-                    SetWindowTheme(control.Handle, lightFallback, null);
-
+                // Always re-scan child HWNDs so a native scrollbar that WinForms
+                // created lazily after the previous pass still receives the dark
+                // common-control theme (white strip disappears on TreeView/
+                // PropertyGrid/drop-down list).
                 ThemeAllChildWindows(control.Handle);
                 SendThemeChanged(control.Handle);
 
@@ -741,6 +927,50 @@ namespace Re4QuadExtremeEditor
                 // doubled/flickering bars (scene tree, grid drop-downs). The
                 // DarkMode_Explorer theme above alone renders stable dark bars.
                 control.Invalidate(true);
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Restores the stock Windows light common-control theme on an HWND that
+        /// was previously opted into Dark Mode. Called only while Light Mode is
+        /// being (re)applied so native scrollbars/editors do not keep the dark
+        /// palette after a live theme switch.
+        /// </summary>
+        private static void RevertNativeToLight(Control control)
+        {
+            if (control == null || !control.IsHandleCreated)
+                return;
+            try
+            {
+                // Owned dark scrollbar skin is light-mode disabled by the shell,
+                // so simply restore the normal themed surface.
+                AllowDarkModeForWindow(control.Handle, false);
+                // "Explorer" is the standard light class for common controls;
+                // an empty class would disable parts of the scrollbar theming.
+                SetWindowTheme(control.Handle, "Explorer", null);
+                RevertChildWindowsToLight(control.Handle);
+                SendThemeChanged(control.Handle);
+                control.Invalidate(true);
+            }
+            catch { }
+        }
+
+        private static void RevertChildWindowsToLight(IntPtr parent)
+        {
+            if (parent == IntPtr.Zero) return;
+            try
+            {
+                EnumChildWindows(parent, (hwnd, lParam) =>
+                {
+                    try
+                    {
+                        AllowDarkModeForWindow(hwnd, false);
+                        SetWindowTheme(hwnd, "Explorer", null);
+                    }
+                    catch { }
+                    return true;
+                }, IntPtr.Zero);
             }
             catch { }
         }
@@ -835,7 +1065,6 @@ namespace Re4QuadExtremeEditor
         private static void ApplyDarkNativeThemeRecursive(Control control)
         {
             if (UiTheme.IsLight) return;
-            if (_nativeDarkApplied) return;
             if (control == null) return;
 
             ApplyDarkNativeTheme(control);

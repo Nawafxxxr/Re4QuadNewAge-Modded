@@ -2995,7 +2995,7 @@ namespace Re4QuadExtremeEditor
             this.MinimumSize = new System.Drawing.Size(900, 538);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "RE4 QUAD EXTREME EDITOR [NEW AGE] | V.1.2.4 | YOUTUBE.COM/@JADERLINK";
+            this.Text = "RE4 QUAD EXTREME EDITOR [NEW AGE] | V.1.2.4 | YOUTUBE.COM/@JADERLINK  [THEME FIX 2026-08-29 16:40 SELECTION V2]";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.MainForm_KeyDown);
             this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.MainForm_KeyUp);

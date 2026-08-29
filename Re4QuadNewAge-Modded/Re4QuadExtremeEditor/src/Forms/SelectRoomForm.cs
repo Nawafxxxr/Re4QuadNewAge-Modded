@@ -69,7 +69,7 @@ namespace Re4QuadExtremeEditor.src.Forms
             InitializeComponent();
             BuildCompleteLoadControls();
 
-            bool useModernStyle = Globals.BackupConfigs != null && Globals.BackupConfigs.UseDarkerGrayTheme;
+            bool useModernStyle = !UiTheme.IsLight;
             if (useModernStyle)
             {
                 DarkTheme.Apply(this);

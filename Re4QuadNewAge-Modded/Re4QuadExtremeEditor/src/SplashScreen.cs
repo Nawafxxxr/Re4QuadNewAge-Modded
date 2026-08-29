@@ -11,9 +11,39 @@ namespace Re4QuadExtremeEditor.src
     public static class SplashScreen
     {
         public static SplashScreenConteiner Conteiner { get; set; }
+
+        /// <summary>
+        /// True when the native splash window could not be created in this
+        /// environment (e.g. wine/mono, X11, restricted window stations).
+        /// The splash is purely cosmetic, so the app keeps running without it.
+        /// </summary>
+        public static bool SplashWindowFailed { get; private set; }
+
         private static void SplashScreenShow()
         {
-            Application.Run(new SplashScreenForm(Conteiner));
+            try
+            {
+                Application.Run(new SplashScreenForm(Conteiner));
+            }
+            catch (Exception ex)
+            {
+                SplashWindowFailed = true;
+                try
+                {
+                    if (Conteiner != null)
+                    {
+                        Conteiner.FormIsClosed = true;
+                        Conteiner.Close = null;
+                        Conteiner.ReleasedToClose = null;
+                    }
+                    string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Re4Quad_error_log.txt");
+                    System.IO.File.AppendAllText(logPath,
+                        "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "] "
+                        + "Splash window could not be created; continuing without it (compatibility fallback).\r\n"
+                        + ex.GetType().Name + ": " + ex.Message + "\r\n\r\n");
+                }
+                catch { }
+            }
         }
 
         public static void StartSplashScreen()

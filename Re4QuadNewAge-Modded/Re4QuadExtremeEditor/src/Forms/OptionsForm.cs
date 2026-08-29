@@ -192,16 +192,87 @@ namespace Re4QuadExtremeEditor.src.Forms
             t.Start();
         }
 
-        /// <summary>Live theme recolor: mutates existing brush colours in-place
-        /// so WPF updates every control that references them — no visual tree
-        /// rebuild, no flicker, no freeze.</summary>
+        /// <summary>Live theme recolor: rebuilds the window with the fresh
+        /// palette so frozen Style brushes, ScrollBar templates and hover
+        /// triggers all pick up the new colours. Keeps typed edits.</summary>
         private void RebuildForTheme()
         {
             try
             {
+                string sxfile = txtXFILE?.Text;
+                string s2007 = txt2007?.Text;
+                string sps2 = txtPS2?.Text;
+                string suhd = txtUHD?.Text;
+                string sps4 = txtPS4NS?.Text;
+                string sc1 = txtCustom1?.Text;
+                string sc2 = txtCustom2?.Text;
+                string sc3 = txtCustom3?.Text;
+                string sudas = toolUdas?.Text;
+                string slfs = toolLfs?.Text;
+                string spack = toolPack?.Text;
+                string sgca = toolGca?.Text;
+                string sdiv = dividerBox?.Text;
+                string smul = multiplierBox?.Text;
+                int selEnemies = comboEnemies?.SelectedIndex ?? -1;
+                int selEtc = comboEtcModels?.SelectedIndex ?? -1;
+                int selItems = comboItems?.SelectedIndex ?? -1;
+                int selQuad = comboQuadCustom?.SelectedIndex ?? -1;
+                int selLang = comboLang?.SelectedIndex ?? selectedLangIndex;
+                int selRot = comboRotOrder?.SelectedIndex ?? -1;
+                int savedAmount = frationalAmount;
+                Color savedSky = selectedSkyColor;
+                int savedSkyIdx = selectedSkyIndex;
+                int savedStep = currentStep;
+
                 P.UpdateColors();
                 Background = P.BWindow;
+
+                textRefreshers.Clear();
+                combos.Clear();
+                radioRows.Clear();
+                if (pageHost != null) pageHost.Children.Clear();
+                pages = new Grid[PageCount];
+                pageBuilt = new bool[PageCount];
+                chipBorders = null; chipNums = null; chipLabels = null; chipLines = null; chipDots = null;
+                skySwatches = null; skyPreviewChip = null;
+
+                Content = null;
+                BuildUi();
+
+                if (txtXFILE != null && sxfile != null) txtXFILE.Text = sxfile;
+                if (txt2007 != null && s2007 != null) txt2007.Text = s2007;
+                if (txtPS2 != null && sps2 != null) txtPS2.Text = sps2;
+                if (txtUHD != null && suhd != null) txtUHD.Text = suhd;
+                if (txtPS4NS != null && sps4 != null) txtPS4NS.Text = sps4;
+                if (txtCustom1 != null && sc1 != null) txtCustom1.Text = sc1;
+                if (txtCustom2 != null && sc2 != null) txtCustom2.Text = sc2;
+                if (txtCustom3 != null && sc3 != null) txtCustom3.Text = sc3;
+                if (toolUdas != null && sudas != null) toolUdas.Text = sudas;
+                if (toolLfs != null && slfs != null) toolLfs.Text = slfs;
+                if (toolPack != null && spack != null) toolPack.Text = spack;
+                if (toolGca != null && sgca != null) toolGca.Text = sgca;
+                if (dividerBox != null && sdiv != null) dividerBox.Text = sdiv;
+                if (multiplierBox != null && smul != null) multiplierBox.Text = smul;
+
+                frationalAmount = savedAmount;
+                if (amountValue != null) amountValue.Text = frationalAmount.ToString();
+                selectedSkyColor = savedSky;
+                selectedSkyIndex = savedSkyIdx;
+                SafeSelect(comboEnemies, selEnemies);
+                SafeSelect(comboEtcModels, selEtc);
+                SafeSelect(comboItems, selItems);
+                SafeSelect(comboQuadCustom, selQuad);
+                SafeSelect(comboLang, selLang);
+                SafeSelect(comboRotOrder, selRot);
+                if (comboEnemies != null) comboEnemies.Refresh();
+                if (comboEtcModels != null) comboEtcModels.Refresh();
+                if (comboItems != null) comboItems.Refresh();
+                if (comboQuadCustom != null) comboQuadCustom.Refresh();
+                if (comboLang != null) comboLang.Refresh();
+                if (comboRotOrder != null) comboRotOrder.Refresh();
+
                 RefreshSkySwatches();
+                ShowStepImmediate(savedStep);
             }
             catch { }
         }
@@ -425,7 +496,7 @@ namespace Re4QuadExtremeEditor.src.Forms
             close.FontWeight = FontWeights.Normal;
             close.Padding = new Thickness(0);
             close.BorderBrush = Brushes.Transparent;
-            close.Click += delegate { DoCancel(); };
+            close.Click += delegate { ApplyAndClose(); };
             Grid.SetColumn(close, 1);
             g.Children.Add(close);
 

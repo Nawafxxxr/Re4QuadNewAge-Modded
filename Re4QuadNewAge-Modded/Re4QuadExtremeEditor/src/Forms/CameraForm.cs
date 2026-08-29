@@ -24,7 +24,7 @@ namespace Re4QuadExtremeEditor.src.Forms
             this.updateGL = updateGL;
             this.UpdateCameraMatrix = UpdateCameraMatrix;
             InitializeComponent();
-            if (Globals.BackupConfigs != null && Globals.BackupConfigs.UseDarkerGrayTheme)
+            if (!UiTheme.IsLight)
                 DarkTheme.Apply(this);
 
             GetPos();

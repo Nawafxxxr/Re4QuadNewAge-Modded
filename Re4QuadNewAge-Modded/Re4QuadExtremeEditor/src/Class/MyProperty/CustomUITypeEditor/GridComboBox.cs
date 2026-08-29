@@ -36,7 +36,7 @@ namespace Re4QuadExtremeEditor.src.Class.MyProperty.CustomUITypeEditor
 
 			// Properties
 			_listBox.BorderStyle = BorderStyle.None;
-			_listBox.BackColor = (Globals.BackupConfigs != null && Globals.BackupConfigs.UseDarkerGrayTheme) ? Color.FromArgb(27, 30, 36) : System.Drawing.SystemColors.Control;
+			_listBox.BackColor = UiTheme.IsLight ? System.Drawing.SystemColors.Control : Color.FromArgb(27, 30, 36);
 			_listBox.Font = new System.Drawing.Font("Courier New", 8.25f);
 			_listBox.DrawMode = DrawMode.OwnerDrawFixed;
 			_listBox.HorizontalScrollbar = true;
@@ -152,7 +152,7 @@ namespace Re4QuadExtremeEditor.src.Class.MyProperty.CustomUITypeEditor
 		// vertical and horizontal scrollbars never fall back to Windows white.
 		private void ApplyDarkListBoxTheme()
 		{
-			if (Globals.BackupConfigs != null && Globals.BackupConfigs.UseDarkerGrayTheme && _listBox.IsHandleCreated)
+			if (!UiTheme.IsLight && _listBox.IsHandleCreated)
 			{
 				DarkTheme.ApplyDarkNativeTheme(_listBox);
 			}
@@ -216,7 +216,7 @@ namespace Re4QuadExtremeEditor.src.Class.MyProperty.CustomUITypeEditor
 				{
 				   e.Graphics.FillRectangle(new SolidBrush(Color.FromArgb(0x70, 0xBB, 0xDB)), e.Bounds);
 				}
-				e.Graphics.DrawString(_listBox.Items[e.Index].ToString(), e.Font, new SolidBrush(Globals.BackupConfigs != null && Globals.BackupConfigs.UseDarkerGrayTheme ? Color.FromArgb(232, 235, 240) : Color.Black), e.Bounds.Left, e.Bounds.Top);
+				e.Graphics.DrawString(_listBox.Items[e.Index].ToString(), e.Font, new SolidBrush(UiTheme.IsLight ? Color.Black : Color.FromArgb(232, 235, 240)), e.Bounds.Left, e.Bounds.Top);
 			}
 		}
 

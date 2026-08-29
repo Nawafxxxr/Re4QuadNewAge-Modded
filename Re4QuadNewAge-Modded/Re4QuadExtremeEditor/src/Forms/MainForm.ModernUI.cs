@@ -48,12 +48,82 @@ namespace Re4QuadExtremeEditor
         {
             try
             {
+                try
+                {
+                    string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "theme_debug.log");
+                    System.IO.File.AppendAllText(logPath, string.Format("[{0:HH:mm:ss}] DoThemeRestyle IsLight={1} Input={2:X6} Text={3:X6}\r\n", DateTime.Now, UiTheme.IsLight, DarkTheme.Input.ToArgb() & 0xFFFFFF, DarkTheme.Text.ToArgb() & 0xFFFFFF));
+                }
+                catch { }
                 DarkTheme.Apply(this);
                 ApplyHudThemeColors();
                 if (modernUiReady)
                 {
                     StyleModernShell();
                 }
+                // PropertyGrid/TreeView selection was staying dark (near-black) after a
+                // live switch to Light mode because the grid's handle was already created.
+                // Force the correct palette-aware colors immediately and re-select the
+                // current grid item so the already-painted row repaints with the new brush.
+                try
+                {
+                    if (propertyGridObjs != null)
+                    {
+                        propertyGridObjs.SelectedItemWithFocusBackColor = UiTheme.IsLight
+                            ? Color.FromArgb(0xE4, 0xEE, 0xFB)
+                            : Color.FromArgb(0x2D, 0x31, 0x39);
+                        propertyGridObjs.SelectedItemWithFocusForeColor = UiTheme.IsLight
+                            ? Color.FromArgb(0x12, 0x18, 0x1F)
+                            : Color.FromArgb(0xF9, 0xFA, 0xFC);
+                        propertyGridObjs.ViewBackColor = DarkTheme.Input;
+                        propertyGridObjs.ViewForeColor = DarkTheme.Text;
+                        propertyGridObjs.BackColor = DarkTheme.Input;
+                        propertyGridObjs.LineColor = DarkTheme.Input;
+                        propertyGridObjs.CategoryForeColor = DarkTheme.Text;
+                        // Re-select to force the already-visible row (e.g. "Tool created by: JADERLINK")
+                        // to repaint with the new selection brush - otherwise it keeps the old dark bitmap until restart.
+                        var curSel = propertyGridObjs.SelectedGridItem;
+                        var curObj = propertyGridObjs.SelectedObject;
+                        propertyGridObjs.SelectedObject = null;
+                        propertyGridObjs.SelectedObject = curObj;
+                        if (curSel != null)
+                        {
+                            try { propertyGridObjs.SelectedGridItem = curSel; } catch { }
+                        }
+                        propertyGridObjs.Refresh();
+                    }
+                    if (treeViewObjs is NsMultiselectTreeView.MultiselectTreeView mt)
+                    {
+                        mt.SelectedNodeBackColor = UiTheme.IsLight
+                            ? Color.FromArgb(0xE4, 0xEE, 0xFB)
+                            : Color.FromArgb(0x2D, 0x31, 0x39);
+                        mt.UseThemedSelectedNodeBackColor = true;
+                        mt.Invalidate();
+                    }
+                    // The in-place editor (e.g. "Unknown LO" Byte 01) is created on demand
+                    // inside PropertyGridView and was staying white in Dark mode.
+                    void ThemeEditor(Control root)
+                    {
+                        foreach (Control c in root.Controls)
+                        {
+                            if (c is TextBoxBase tb)
+                            {
+                                tb.BackColor = DarkTheme.Input;
+                                tb.ForeColor = DarkTheme.Text;
+                                tb.BorderStyle = BorderStyle.FixedSingle;
+                                if (tb.IsHandleCreated) DarkTheme.ApplyDarkNativeTheme(tb);
+                            }
+                            else if (c is ComboBox cb)
+                            {
+                                cb.BackColor = DarkTheme.Input;
+                                cb.ForeColor = DarkTheme.Text;
+                                if (cb.IsHandleCreated) DarkTheme.ApplyDarkNativeTheme(cb);
+                            }
+                            if (c.Controls.Count > 0) ThemeEditor(c);
+                        }
+                    }
+                    if (propertyGridObjs != null) ThemeEditor(propertyGridObjs);
+                }
+                catch { }
                 try
                 {
                     BeginInvoke(new Action(() =>

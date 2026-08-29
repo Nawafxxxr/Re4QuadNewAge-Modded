@@ -200,7 +200,7 @@ namespace Re4QuadExtremeEditor.src.Class.Files
             // Dark Mode only: keep enabled entries bright and make disabled entries
             // a soft gray so the state is immediately distinguishable.
             // Light Mode keeps the original color behavior unchanged.
-            if (Globals.BackupConfigs != null && Globals.BackupConfigs.UseDarkerGrayTheme && Lines.ContainsKey(ID))
+            if (!UiTheme.IsLight && Lines.ContainsKey(ID))
             {
                 return ReturnOffset0x00Enable(ID) == 0
                     ? Color.FromArgb(170, 175, 182) // Disable

@@ -21,7 +21,7 @@ namespace Re4QuadExtremeEditor.src.Forms
         public SearchForm(object[] List, object SelectedObj = null)
         {
             InitializeComponent();
-            if (Globals.BackupConfigs != null && Globals.BackupConfigs.UseDarkerGrayTheme)
+            if (!UiTheme.IsLight)
                 DarkTheme.Apply(this);
 
             this.MouseWheel += SearchForm_MouseWheel;

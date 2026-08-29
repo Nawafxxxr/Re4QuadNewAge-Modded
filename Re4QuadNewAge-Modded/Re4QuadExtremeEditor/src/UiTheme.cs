@@ -154,7 +154,7 @@ namespace Re4QuadExtremeEditor
 
             private static void InitOrSet(ref SolidColorBrush field, int rgb)
             {
-                if (field == null)
+                if (field == null || field.IsFrozen)
                     field = new SolidColorBrush(M(rgb));
                 else
                     field.Color = M(rgb);
