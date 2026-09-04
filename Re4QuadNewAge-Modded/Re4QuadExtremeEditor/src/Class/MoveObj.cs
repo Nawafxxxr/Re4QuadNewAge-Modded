@@ -320,7 +320,24 @@ namespace Re4QuadExtremeEditor.src.Class
 
                 Vector3 angle = savedPos[0];
 
-                if (moveDirection == MoveDirection.X)
+                // For ITA warp/ladder/grapple/teleport the only meaningful rotation is Y (facing).
+                // Make any yellow arrow (X/Y/Z) drive Y so the three stacked yellows all feel responsive.
+                bool isSpecialFacing = false;
+                if (obj != null && obj.Parent is TreeNodeObj.SpecialNodeGroup sg)
+                {
+                    try
+                    {
+                        var st = sg.PropertyMethods.GetSpecialType(obj.ObjLineRef);
+                        if (st == Enums.SpecialType.T01_WarpDoor || st == Enums.SpecialType.T10_FixedLadderClimbUp || st == Enums.SpecialType.T13_LocalTeleportation || st == Enums.SpecialType.T15_AdaGrappleGun || st == Enums.SpecialType.T04_GroupedEnemyTrigger || st == Enums.SpecialType.T02_CutSceneEvents || st == Enums.SpecialType.T05_Message || st == Enums.SpecialType.T0A_DamagesThePlayer || st == Enums.SpecialType.T0B_FalseCollision)
+                            isSpecialFacing = true;
+                    }
+                    catch { }
+                }
+                if (isSpecialFacing)
+                {
+                    angle.Y += sensitivity * MousePosX;
+                }
+                else if (moveDirection == MoveDirection.X)
                 {
                     angle.X += sensitivity * MousePosX;
                 }

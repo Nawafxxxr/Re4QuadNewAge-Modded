@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using OpenTK;
 using Re4QuadExtremeEditor.src.Class.TreeNodeObj;
+using Re4QuadExtremeEditor.src.Class.Files;
 
 namespace Re4QuadExtremeEditor.src.Class
 {
@@ -362,6 +363,43 @@ namespace Re4QuadExtremeEditor.src.Class
                 flat.Add(n.Index);
             }
             Push(new AddCommand(flat, label));
+        }
+
+        // ------------------------------------------------------------------
+        // RTP undo: snapshot-based, covers delete / link / unlink / add
+
+        private sealed class RtpCommand : IUndoCommand
+        {
+            private readonly File_RTP_Group file;
+            private readonly RtpSnapshot before;
+            private readonly RtpSnapshot after;
+            private readonly string label;
+
+            public RtpCommand(File_RTP_Group f, RtpSnapshot b, RtpSnapshot a, string l)
+            {
+                file = f; before = b; after = a; label = l;
+            }
+
+            public string Label { get { return label; } }
+            public bool Redoable { get { return true; } }
+
+            public void Undo()
+            {
+                if (file == null || before == null) return;
+                file.RestoreSnapshot(before);
+            }
+
+            public void Redo()
+            {
+                if (file == null || after == null) return;
+                file.RestoreSnapshot(after);
+            }
+        }
+
+        public static void PushRtp(File_RTP_Group file, RtpSnapshot before, RtpSnapshot after, string label)
+        {
+            if (file == null || before == null || after == null) return;
+            Push(new RtpCommand(file, before, after, label));
         }
     }
 }

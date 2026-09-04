@@ -904,6 +904,153 @@ namespace Re4QuadExtremeEditor.src.Class.Files
             }
         }
 
+        /// <summary>Applies a stored keyframe (pos/target/zoom/fov/time) to the given camera node.</summary>
+        public void ApplyStoredKeyframe(ushort nodeID, OpenTK.Vector3 pos, OpenTK.Vector3 tgt, float zoom, float fov, ushort time)
+        {
+            ushort e; CamZoneRecord z; CamCameraRecord c; int ky;
+            if (!TryCamNode(nodeID, out e, out z, out c, out ky))
+            {
+                return;
+            }
+            if (ky < 0 || c.Positions == null || c.Positions.Count == 0)
+            {
+                return;
+            }
+            int k = Math.Min(ky, c.Positions.Count - 1);
+            if (k < c.Positions.Count) c.Positions[k] = new CamVector(pos.X, pos.Y, pos.Z);
+            if (k < c.Targets.Count) c.Targets[k] = new CamVector(tgt.X, tgt.Y, tgt.Z);
+            if (k < c.Zoom.Count) c.Zoom[k] = zoom;
+            if (k < c.Fov.Count) c.Fov[k] = fov;
+            if (k < c.TimeFrames.Count) c.TimeFrames[k] = time;
+        }
+
+        /// <summary>Captures a keyframe's values for the given camera node.</summary>
+        public bool TryGetStoredKeyframe(ushort nodeID, out OpenTK.Vector3 pos, out OpenTK.Vector3 tgt, out float zoom, out float fov, out ushort time)
+        {
+            pos = OpenTK.Vector3.Zero;
+            tgt = OpenTK.Vector3.UnitZ;
+            zoom = 0f;
+            fov = 50f;
+            time = 0;
+            ushort e; CamZoneRecord z; CamCameraRecord c; int ky;
+            if (!TryCamNode(nodeID, out e, out z, out c, out ky))
+            {
+                return false;
+            }
+            if (ky < 0 || c.Positions == null || c.Positions.Count == 0)
+            {
+                return false;
+            }
+            int k = Math.Min(ky, c.Positions.Count - 1);
+            pos = new OpenTK.Vector3(c.Positions[k].X, c.Positions[k].Y, c.Positions[k].Z);
+            if (k < c.Targets.Count) tgt = new OpenTK.Vector3(c.Targets[k].X, c.Targets[k].Y, c.Targets[k].Z);
+            if (k < c.Zoom.Count) zoom = c.Zoom[k];
+            if (k < c.Fov.Count) fov = c.Fov[k];
+            if (k < c.TimeFrames.Count) time = c.TimeFrames[k];
+            return true;
+        }
+
+        /// <summary>Resolves a CAM tree node to its full owner zone + camera records (whole track with all keyframes).</summary>
+        public bool TryGetEntry(ushort nodeID, out CamZoneRecord zone, out CamCameraRecord cam)
+        {
+            zone = null; cam = null;
+            ushort e; CamZoneRecord z; CamCameraRecord c; int ky;
+            if (!TryCamNode(nodeID, out e, out z, out c, out ky)) return false;
+            zone = z; cam = c;
+            return true;
+        }
+
+        /// <summary>
+        /// Deep-copies a full camera entry (zone + camera record with all keyframes)
+        /// into a brand-new independent entry. Optionally translates every keyframe
+        /// position by the given world offset. Returns the first camNodeList ID of
+        /// the new entry, or throws on failure.
+        /// </summary>
+        public ushort AddEntryCopy(CamZoneRecord zoneSrc, CamCameraRecord camSrc, OpenTK.Vector3? translate)
+        {
+            if (Cameras.Count >= Consts.AmountLimitCAM || Zones.Count >= Consts.AmountLimitCAM)
+            {
+                throw new InvalidOperationException("Camera limit reached.");
+            }
+
+            OpenTK.Vector3 t = translate ?? OpenTK.Vector3.Zero;
+
+            ushort newId = FindFreeID(Cameras.Keys);
+            CamCameraRecord c = new CamCameraRecord();
+            c.Unk021 = camSrc.Unk021;
+            c.CamId = camSrc.CamId;
+            c.CamType = camSrc.CamType;
+            c.Flags = camSrc.Flags;
+            c.Unk025 = camSrc.Unk025;
+            c.Distance = camSrc.Distance;
+            c.Unk027 = camSrc.Unk027;
+            if (camSrc.Raw12 != null) c.Raw12 = (byte[])camSrc.Raw12.Clone();
+            c.RawBuf0Addr = 0; c.RawBuf1Addr = 0; c.RawBuf2Addr = 0; c.RawBuf3Addr = 0; c.RawBuf4Addr = 0;
+            if (camSrc.Positions != null)
+            {
+                foreach (var p in camSrc.Positions)
+                {
+                    c.Positions.Add(new CamVector(p.X + t.X, p.Y + t.Y, p.Z + t.Z));
+                }
+            }
+            if (camSrc.Targets != null)
+            {
+                foreach (var p in camSrc.Targets)
+                {
+                    c.Targets.Add(p.Clone());
+                }
+            }
+            if (camSrc.Zoom != null) c.Zoom.AddRange(camSrc.Zoom);
+            if (camSrc.Fov != null) c.Fov.AddRange(camSrc.Fov);
+            if (camSrc.TimeFrames != null) c.TimeFrames.AddRange(camSrc.TimeFrames);
+            c.CamId = newId > 255 ? (byte)255 : (byte)newId;
+
+            Cameras.Add(newId, c);
+
+            ushort zoneId = FindFreeID(Zones.Keys);
+            CamZoneRecord z = new CamZoneRecord();
+            z.TriggerType = zoneSrc.TriggerType;
+            z.LinkUnk012 = zoneSrc.LinkUnk012;
+            z.Unk015 = zoneSrc.Unk015;
+            z.Unk016 = zoneSrc.Unk016;
+            z.Unk017 = zoneSrc.Unk017;
+            z.CameraIndex = newId;
+            z.Unk051 = zoneSrc.Unk051;
+            z.EntryNumber = (byte)Math.Min(255, Zones.Count + 1);
+            z.CamTypeTz = zoneSrc.CamTypeTz;
+            z.Subtype = zoneSrc.Subtype;
+            if (zoneSrc.Unk055 != null)
+            {
+                z.Unk055 = new ushort[zoneSrc.Unk055.Length];
+                Array.Copy(zoneSrc.Unk055, z.Unk055, zoneSrc.Unk055.Length);
+            }
+            z.Height = zoneSrc.Height;
+            z.Bottom = zoneSrc.Bottom;
+            if (zoneSrc.Points != null)
+            {
+                foreach (var p in zoneSrc.Points)
+                {
+                    z.Points.Add(new CamVector(p.X, p.Y, p.Z));
+                }
+            }
+            z.Table2Addr = 0; z.Table3Addr = 0;
+            Zones.Add(zoneId, z);
+            LastAddedZoneID = zoneId;
+
+            RebuildCamNodeList();
+            SyncTreeNodesToCamNodeList();
+            SyncZoneTreeNodesToKeys();
+
+            for (ushort i = 0; i < camNodeList.Count; i++)
+            {
+                if (camNodeList[i].Entry == zoneId)
+                {
+                    return i;
+                }
+            }
+            return 0;
+        }
+
         private Vector3 GetCameraPos_ToCamera(ushort ID)
         {
             Vector3 position = GetCameraPositionGL(ID);

@@ -1907,6 +1907,7 @@ namespace Re4QuadExtremeEditor.src
             Text.Add(eLang.toolStripMenuItemItemPositionAtAssociatedObjectLocation, "Item Position At Associated Object Location");
             Text.Add(eLang.toolStripMenuItemHideItemTriggerZone, "Hide Item Trigger Zone");
             Text.Add(eLang.toolStripMenuItemHideItemTriggerRadius, "Hide Item Trigger Radius");
+            Text.Add(eLang.toolStripMenuItemHideItemAura, "Hide Item Aura");
             Text.Add(eLang.toolStripMenuItemHideSpecialTriggerZone, "Hide Special Trigger Zone");
             Text.Add(eLang.toolStripMenuItemHideExtraObjs, "Hide Extra Objects");
             Text.Add(eLang.toolStripMenuItemHideOnlyWarpDoor, "Hide Only Warp Door");
@@ -2076,9 +2077,9 @@ namespace Re4QuadExtremeEditor.src
             Text.Add(eLang.groupBoxTheme, "Theme");
             Text.Add(eLang.labelThemeWarning, "Theme changes only take effect after program restart");
             Text.Add(eLang.checkBoxUseDarkerGrayTheme, "Dark Mode");
-            Text.Add(eLang.groupBoxInvertedMouseButtons, "Inverted Mouse Buttons");
-            Text.Add(eLang.labelInvertedMouseButtonsWarning, "Changes only take effect after restarting the program");
-            Text.Add(eLang.checkBoxUseInvertedMouseButtons, "Use inverted Mouse Buttons in the 3d viewer");
+            Text.Add(eLang.groupBoxInvertedMouseButtons, "Mouse Buttons");
+            Text.Add(eLang.labelInvertedMouseButtonsWarning, "Applied immediately — no restart needed. Left-drag = camera, Right-drag = select (when checked).");
+            Text.Add(eLang.checkBoxUseInvertedMouseButtons, "Swap mouse buttons: Left-drag rotates camera (Right-drag selects)");
 
             //SearchForm
             Text.Add(eLang.SearchForm, "Search");

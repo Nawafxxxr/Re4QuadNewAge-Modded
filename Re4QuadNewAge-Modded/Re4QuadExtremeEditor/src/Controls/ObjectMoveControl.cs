@@ -37,6 +37,17 @@ namespace Re4QuadExtremeEditor.src.Controls
 
         MoveObjType MoveObjTypeSelected = MoveObjType.Null;
 
+        private bool IsSpecialWarpFacingType(Object3D obj)
+        {
+            if (obj == null || !(obj.Parent is SpecialNodeGroup sg)) return false;
+            try
+            {
+                var st = sg.PropertyMethods.GetSpecialType(obj.ObjLineRef);
+                return st == SpecialType.T01_WarpDoor || st == SpecialType.T10_FixedLadderClimbUp || st == SpecialType.T13_LocalTeleportation || st == SpecialType.T15_AdaGrappleGun || st == SpecialType.T04_GroupedEnemyTrigger || st == SpecialType.T02_CutSceneEvents || st == SpecialType.T05_Message || st == SpecialType.T0A_DamagesThePlayer || st == SpecialType.T0B_FalseCollision;
+            }
+            catch { return false; }
+        }
+
         public void UpdateSelection()
         {
             List<TreeNode> SelectedNodes = DataBase.SelectedNodes.Values.ToList();
@@ -65,9 +76,19 @@ namespace Re4QuadExtremeEditor.src.Controls
                                 combos |= MoveObjCombos.TriggerZone;
                             }
 
-                            if (Special.PropertyMethods.GetSpecialType(obj.ObjLineRef) == SpecialType.T03_Items)
+                            SpecialType st = Special.PropertyMethods.GetSpecialType(obj.ObjLineRef);
+                            if (st == SpecialType.T03_Items)
                             {
                                 combos |= MoveObjCombos.Item;
+                            }
+                            // ITA warp/ladder/grapple/teleport and other rotatable specials — make the three yellow arrows (esp. middle Y) actually rotate the object
+                            if (st == SpecialType.T01_WarpDoor || st == SpecialType.T10_FixedLadderClimbUp || st == SpecialType.T13_LocalTeleportation || st == SpecialType.T15_AdaGrappleGun || st == SpecialType.T04_GroupedEnemyTrigger || st == SpecialType.T02_CutSceneEvents || st == SpecialType.T05_Message || st == SpecialType.T0A_DamagesThePlayer || st == SpecialType.T0B_FalseCollision)
+                            {
+                                combos |= MoveObjCombos.ExtraSpecialWarpLadderGrappleGun;
+                            }
+                            if (st == SpecialType.T12_AshleyHideCommand)
+                            {
+                                combos |= MoveObjCombos.ExtraSpecialAshley;
                             }
                         }
                         else if (parent is ExtraNodeGroup Extra)
@@ -228,7 +249,8 @@ namespace Re4QuadExtremeEditor.src.Controls
             }
             else if (combos == MoveObjCombos.ExtraSpecialWarpLadderGrappleGun)
             {
-                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveObjXZ_VerticalMoveObjY_Horizontal1None_Horizontal2RotationObjY_Horizontal3None, Lang.GetText(eLang.MoveMode_Obj_PositionAndRotationY)));
+                // All three yellows now drive Y facing (see MoveObj.MoveObjRotationAnglesXYZ special handling) so stacked yellows all feel responsive
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveObjXZ_VerticalMoveObjY_Horizontal123RotationObjXYZ, Lang.GetText(eLang.MoveMode_Obj_PositionAndRotationY)));
             }
             else if (combos == MoveObjCombos.ExtraSpecialAshley)
             {
@@ -259,6 +281,40 @@ namespace Re4QuadExtremeEditor.src.Controls
                 comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZoneWallPoint12and23XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Wall12)));
                 comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZoneWallpoint23and30XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Wall23)));
                 comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZoneWallPoint30and01XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Wall30)));
+            }
+            else if (combos == (MoveObjCombos.TriggerZone | MoveObjCombos.ExtraSpecialWarpLadderGrappleGun))
+            {
+                // ITA warp/ladder/grapple with trigger — trigger zone is default as requested
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZoneAllPointsXZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal2RotationZoneY_Horizontal3ScaleAll, Lang.GetText(eLang.MoveMode_TriggerZone_MoveAll)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveObjXZ_VerticalMoveObjY_Horizontal123RotationObjXYZ, Lang.GetText(eLang.MoveMode_Obj_PositionAndRotationY)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZonePoint0XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Point0)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZonePoint1XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Point1)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZonePoint2XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Point2)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZonePoint3XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Point3)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZoneWallPoint01and12XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Wall01)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZoneWallPoint12and23XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Wall12)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZoneWallpoint23and30XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Wall23)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZoneWallPoint30and01XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Wall30)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.AllMoveXYZ_Horizontal123None, Lang.GetText(eLang.MoveMode_TriggerZone_MoveAll_Obj_Position)));
+            }
+            else if (combos == (MoveObjCombos.TriggerZone | MoveObjCombos.ExtraSpecialAshley))
+            {
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveObjXZ_VerticalMoveObjY_Horizontal123None, Lang.GetText(eLang.MoveMode_Ashley_Position)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveAshleyAllPointsXZ_VerticalNone_Horizontal1None_Horizontal2RotationZoneY_Horizontal3ScaleAll, Lang.GetText(eLang.MoveMode_AshleyZone_MoveAll)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZoneAllPointsXZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal2RotationZoneY_Horizontal3ScaleAll, Lang.GetText(eLang.MoveMode_TriggerZone_MoveAll)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.AllMoveXYZ_Horizontal123None, Lang.GetText(eLang.MoveMode_TriggerZone_MoveAll_Obj_Position)));
+            }
+            else if (combos == (MoveObjCombos.TriggerZone | MoveObjCombos.Item | MoveObjCombos.ExtraSpecialWarpLadderGrappleGun))
+            {
+                // Triple mixed Item/Warp+Trigger
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveObjXZ_VerticalMoveObjY_Horizontal123RotationObjXYZ, Lang.GetText(eLang.MoveMode_Item_PositionAndRotationAll)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveObjXZ_VerticalMoveObjY_Horizontal1None_Horizontal2RotationObjY_Horizontal3None, Lang.GetText(eLang.MoveMode_Obj_PositionAndRotationY)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZoneAllPointsXZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal2RotationZoneY_Horizontal3ScaleAll, Lang.GetText(eLang.MoveMode_TriggerZone_MoveAll)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZonePoint0XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Point0)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZonePoint1XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Point1)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZonePoint2XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Point2)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.SquareMoveTriggerZonePoint3XZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal23None, Lang.GetText(eLang.MoveMode_TriggerZone_Point3)));
+                comboBoxMoveMode.Items.Add(new MoveObjTypeObjForListBox(MoveObjType.AllMoveXYZ_Horizontal123None, Lang.GetText(eLang.MoveMode_TriggerZone_MoveAll_Obj_Position)));
             }
             else if (combos == MoveObjCombos.Combo_Item_TriggerZone)
             {
@@ -370,6 +426,31 @@ namespace Re4QuadExtremeEditor.src.Controls
             {
                 comboBoxMoveMode.SelectedIndex = 0;
             }
+            // Force sync even if SelectedIndex didn't change (first trigger selection after program start keeps index 0 but items changed)
+            // This fixes "first time doesn't move" bug where orange panel stays disabled
+            {
+                var sel = comboBoxMoveMode.SelectedItem as MoveObjTypeObjForListBox;
+                if (sel != null && sel.ID != MoveObjType.Null)
+                {
+                    MoveObjTypeSelected = sel.ID;
+                    Globals.CurrentMoveType = MoveObjTypeSelected;
+                    EnableSquare = (sel.ID.HasFlag(MoveObjType._SquareMoveObjXZ) || sel.ID.HasFlag(MoveObjType._SquareMoveTriggerZone) || sel.ID.HasFlag(MoveObjType._SquareMoveAshleyZone) || sel.ID.HasFlag(MoveObjType._AllMoveXYZ));
+                    EnableVertical = (sel.ID.HasFlag(MoveObjType._VerticalMoveObjY) || sel.ID.HasFlag(MoveObjType._VerticalScaleObjAll) || sel.ID.HasFlag(MoveObjType._VerticalMoveTriggerZoneY) || sel.ID.HasFlag(MoveObjType._AllMoveXYZ));
+                    EnableHorisontal1 = (sel.ID.HasFlag(MoveObjType._Horizontal1RotationObjX) || sel.ID.HasFlag(MoveObjType._Horizontal1ScaleObjX) || sel.ID.HasFlag(MoveObjType._Horizontal1ChangeTriggerZoneHeight));
+                    EnableHorisontal2 = (sel.ID.HasFlag(MoveObjType._Horizontal2RotationObjY) || sel.ID.HasFlag(MoveObjType._Horizontal2ScaleObjY) || sel.ID.HasFlag(MoveObjType._Horizontal2RotationZoneY));
+                    EnableHorisontal3 = (sel.ID.HasFlag(MoveObjType._Horizontal3RotationObjZ) || sel.ID.HasFlag(MoveObjType._Horizontal3ScaleObjZ) || sel.ID.HasFlag(MoveObjType._Horizontal3TriggerZoneScaleAll) || sel.ID.HasFlag(MoveObjType._Horizontal3AshleyZoneScaleAll));
+                    EnableAll(true);
+                    UpdatePictureBoxImages();
+                    try { UpdateGL?.Invoke(); } catch { }
+                }
+                else if (comboBoxMoveMode.Items.Count == 1 && comboBoxMoveMode.Items[0] is MoveObjTypeObjForListBox first && first.ID == MoveObjType.Null)
+                {
+                    MoveObjTypeSelected = MoveObjType.Null;
+                    Globals.CurrentMoveType = MoveObjType.Null;
+                    EnableAll(false);
+                    UpdatePictureBoxImages();
+                }
+            }
 
         }
 
@@ -386,11 +467,13 @@ namespace Re4QuadExtremeEditor.src.Controls
             checkBoxTriggerZoneKeepOnGround.Enabled = enableAll;
             trackBarMoveSpeed.Enabled = enableAll;
 
-            moveObjHorizontal1.Enabled = EnableHorisontal1 && enableAll;
-            moveObjHorizontal2.Enabled = EnableHorisontal2 && enableAll;
-            moveObjHorizontal3.Enabled = EnableHorisontal3 && enableAll;
-            moveObjVertical.Enabled = EnableVertical && enableAll;
-            moveObjSquare.Enabled = EnableSquare && enableAll;
+            // Keep controls always enabled for mouse events when a selection exists — visual disabled state is handled by UpdatePictureBoxImages
+            // This fixes "first time doesn't move" for AEV/ITA where EnableSquare was still false due to comboBox event timing
+            moveObjHorizontal1.Enabled = enableAll;
+            moveObjHorizontal2.Enabled = enableAll;
+            moveObjHorizontal3.Enabled = enableAll;
+            moveObjVertical.Enabled = enableAll;
+            moveObjSquare.Enabled = enableAll;
         }
 
         void UpdatePictureBoxImages()
@@ -463,6 +546,8 @@ namespace Re4QuadExtremeEditor.src.Controls
             this.UpdatePropertyGrid = UpdatePropertyGrid;
             this.UpdateTreeViewObjs = UpdateTreeViewObjs;
             InitializeComponent();
+            // Legacy gizmo checkbox hidden — now controlled by top/bottom gizmo bar (Re4QuadX parity)
+            try { checkBoxEnableGizmo.Visible = false; } catch { }
             EnableAll(false);
             UpdatePictureBoxImages();
             comboBoxMoveMode.MouseWheel += ComboBoxMoveMode_MouseWheel;
@@ -521,6 +606,7 @@ namespace Re4QuadExtremeEditor.src.Controls
                 if (comboBoxMoveMode.SelectedItem is MoveObjTypeObjForListBox obj && obj.ID != MoveObjType.Null)
                 {
                     MoveObjTypeSelected = obj.ID;
+                    Globals.CurrentMoveType = MoveObjTypeSelected;
                     EnableSquare = (obj.ID.HasFlag(MoveObjType._SquareMoveObjXZ) || obj.ID.HasFlag(MoveObjType._SquareMoveTriggerZone) || obj.ID.HasFlag(MoveObjType._SquareMoveAshleyZone) || obj.ID.HasFlag(MoveObjType._AllMoveXYZ));
                     EnableVertical = (obj.ID.HasFlag(MoveObjType._VerticalMoveObjY) || obj.ID.HasFlag(MoveObjType._VerticalScaleObjAll) || obj.ID.HasFlag(MoveObjType._VerticalMoveTriggerZoneY) || obj.ID.HasFlag(MoveObjType._AllMoveXYZ));
                     EnableHorisontal1 = (obj.ID.HasFlag(MoveObjType._Horizontal1RotationObjX) || obj.ID.HasFlag(MoveObjType._Horizontal1ScaleObjX) || obj.ID.HasFlag(MoveObjType._Horizontal1ChangeTriggerZoneHeight));
@@ -528,10 +614,12 @@ namespace Re4QuadExtremeEditor.src.Controls
                     EnableHorisontal3 = (obj.ID.HasFlag(MoveObjType._Horizontal3RotationObjZ) || obj.ID.HasFlag(MoveObjType._Horizontal3ScaleObjZ) || obj.ID.HasFlag(MoveObjType._Horizontal3TriggerZoneScaleAll) || obj.ID.HasFlag(MoveObjType._Horizontal3AshleyZoneScaleAll));
                     EnableAll(true);
                     UpdatePictureBoxImages();
+                    try { UpdateGL?.Invoke(); } catch { }
                 }
                 else
                 {
                     MoveObjTypeSelected = MoveObjType.Null;
+                    Globals.CurrentMoveType = MoveObjType.Null;
                     EnableSquare = false;
                     EnableVertical = false;
                     EnableHorisontal1 = false;
@@ -539,6 +627,7 @@ namespace Re4QuadExtremeEditor.src.Controls
                     EnableHorisontal3 = false;
                     EnableAll(false);
                     UpdatePictureBoxImages();
+                    try { UpdateGL?.Invoke(); } catch { }
                 }
             }
         }
@@ -739,7 +828,7 @@ namespace Re4QuadExtremeEditor.src.Controls
 
         private void moveObjSquare_MouseMove(object sender, MouseEventArgs e)
         {
-            if (EnableSquare && moveObjSquare_mouseDown)
+            if (moveObjSquare_mouseDown)
             {
                 foreach (TreeNode item in DataBase.SelectedNodes.Values)
                 {
@@ -747,9 +836,14 @@ namespace Re4QuadExtremeEditor.src.Controls
                     {
                         Vector3[] oldPos = null;
                         var key = new MoveObj.ObjKey(obj.ObjLineRef, obj.Group);
-                        if (SavedPosition.ContainsKey(key))
+                        if (SavedPosition != null && SavedPosition.ContainsKey(key))
                         {
                             oldPos = SavedPosition[key];
+                        }
+                        if (oldPos == null)
+                        {
+                            try { oldPos = obj.GetObjPostion_ToMove_General(); if (oldPos != null) oldPos = (Vector3[])oldPos.Clone(); } catch { }
+                            if (oldPos != null && SavedPosition != null && !SavedPosition.ContainsKey(key)) try { SavedPosition[key] = (Vector3[])oldPos.Clone(); } catch { }
                         }
 
                         MoveObj.MoveDirection dir = MoveObj.MoveDirection.Null;
@@ -782,6 +876,21 @@ namespace Re4QuadExtremeEditor.src.Controls
                         else if (MoveObjTypeSelected.HasFlag(MoveObjType._SquareMoveAshleyZone))
                         {
                             MoveObj.MoveTriggerZonePositionXZ(obj, e, moveObj_lastMouseXY, oldPos, camera, dir, move_Invert, MoveObjTypeSelected, TriggerZoneCategory.Category01);
+                        }
+                        else
+                        {
+                            // Fallback for first drag where panel mode not yet synced (AEV/ITA first time) — infer from object
+                            TriggerZoneCategory catFb = TriggerZoneCategory.Disable;
+                            try { catFb = obj.GetTriggerZoneCategory(); } catch { }
+                            bool isTrigFb = catFb == TriggerZoneCategory.Category01 || catFb == TriggerZoneCategory.Category02;
+                            if (isTrigFb)
+                            {
+                                MoveObj.MoveTriggerZonePositionXZ(obj, e, moveObj_lastMouseXY, oldPos, camera, dir, move_Invert, MoveObjType.SquareMoveTriggerZoneAllPointsXZ_VerticalMoveTriggerZoneY_Horizontal1ChangeTriggerZoneHeight_Horizontal2RotationZoneY_Horizontal3ScaleAll, catFb);
+                            }
+                            else
+                            {
+                                MoveObj.MoveObjPositionXYZ(obj, e, moveObj_lastMouseXY, oldPos, camera, dir, move_Invert);
+                            }
                         }
 
                     }
@@ -844,7 +953,7 @@ namespace Re4QuadExtremeEditor.src.Controls
 
         private void moveObjVertical_MouseMove(object sender, MouseEventArgs e)
         {
-            if (EnableVertical && moveObjVertical_mouseDown)
+            if (moveObjVertical_mouseDown)
             {
                 foreach (TreeNode item in DataBase.SelectedNodes.Values)
                 {
@@ -852,9 +961,20 @@ namespace Re4QuadExtremeEditor.src.Controls
                     {
                         Vector3[] oldPos = null;
                         var key = new MoveObj.ObjKey(obj.ObjLineRef, obj.Group);
-                        if (SavedPosition.ContainsKey(key))
+                        if (SavedPosition != null && SavedPosition.ContainsKey(key))
                         {
                             oldPos = SavedPosition[key];
+                        }
+                        if (oldPos == null)
+                        {
+                            // Fallback for first drag after AEV/ITA selection where SavedPosition was captured before selection synced
+                            if (MoveObjTypeSelected.HasFlag(MoveObjType._VerticalScaleObjAll))
+                            {
+                                try { var tmpS = MoveObj.GetSavedScales(); if (tmpS != null && tmpS.ContainsKey(key)) oldPos = tmpS[key]; } catch { }
+                                if (oldPos == null) try { oldPos = obj.GetObjScale_ToMove(); if (oldPos != null) oldPos = (Vector3[])oldPos.Clone(); } catch { }
+                            }
+                            if (oldPos == null) try { oldPos = obj.GetObjPostion_ToMove_General(); if (oldPos != null) oldPos = (Vector3[])oldPos.Clone(); } catch { }
+                            if (oldPos == null) try { var tmp = MoveObj.GetSavedPosition(); if (tmp != null && tmp.ContainsKey(key)) oldPos = tmp[key]; } catch { }
                         }
 
                         if (MoveObjTypeSelected.HasFlag(MoveObjType._AllMoveXYZ))
@@ -872,6 +992,20 @@ namespace Re4QuadExtremeEditor.src.Controls
                         else if (MoveObjTypeSelected.HasFlag(MoveObjType._VerticalScaleObjAll))
                         {
                             MoveObj.MoveObjScaleXYZ(obj, e, moveObj_lastMouseXY, oldPos, MoveObj.MoveDirection.X | MoveObj.MoveDirection.Y | MoveObj.MoveDirection.Z, move_Invert);
+                        }
+                        else
+                        {
+                            TriggerZoneCategory catFb = TriggerZoneCategory.Disable;
+                            try { catFb = obj.GetTriggerZoneCategory(); } catch { }
+                            bool isTrigFb = catFb == TriggerZoneCategory.Category01 || catFb == TriggerZoneCategory.Category02;
+                            if (isTrigFb)
+                            {
+                                MoveObj.MoveTriggerZonePositionY(obj, e, moveObj_lastMouseXY, oldPos, move_Invert);
+                            }
+                            else
+                            {
+                                MoveObj.MoveObjPositionXYZ(obj, e, moveObj_lastMouseXY, oldPos, camera, MoveObj.MoveDirection.Y, move_Invert);
+                            }
                         }
 
                     }
@@ -937,7 +1071,7 @@ namespace Re4QuadExtremeEditor.src.Controls
 
         private void moveObjHorizontal1_MouseMove(object sender, MouseEventArgs e)
         {
-            if (EnableHorisontal1 && moveObjHorisontal1_mouseDown)
+            if (moveObjHorisontal1_mouseDown)
             {
                 foreach (TreeNode item in DataBase.SelectedNodes.Values)
                 {
@@ -945,9 +1079,15 @@ namespace Re4QuadExtremeEditor.src.Controls
                     {
                         Vector3[] oldPos = null;
                         var key = new MoveObj.ObjKey(obj.ObjLineRef, obj.Group);
-                        if (SavedPosition.ContainsKey(key))
+                        if (SavedPosition != null && SavedPosition.ContainsKey(key))
                         {
                             oldPos = SavedPosition[key];
+                        }
+                        if (oldPos == null)
+                        {
+                            // Fallback for first drag after selection where SavedPosition was captured before selection fully synced (AEV/ITA first time bug)
+                            try { oldPos = obj.GetObjPostion_ToMove_General(); if (oldPos != null) oldPos = (Vector3[])oldPos.Clone(); } catch { }
+                            if (oldPos == null) try { var tmp = MoveObj.GetSavedPosition(); if (tmp != null && tmp.ContainsKey(key)) oldPos = tmp[key]; } catch { }
                         }
 
                         if (MoveObjTypeSelected.HasFlag(MoveObjType._Horizontal1RotationObjX))
@@ -961,6 +1101,14 @@ namespace Re4QuadExtremeEditor.src.Controls
                         else if (MoveObjTypeSelected.HasFlag(MoveObjType._Horizontal1ChangeTriggerZoneHeight))
                         {
                             MoveObj.MoveTriggerZoneHeight(obj, e, moveObj_lastMouseXY, oldPos, move_Invert);
+                        }
+                        else
+                        {
+                            TriggerZoneCategory catFb = TriggerZoneCategory.Disable;
+                            try { catFb = obj.GetTriggerZoneCategory(); } catch { }
+                            bool isTrigFb = catFb == TriggerZoneCategory.Category01 || catFb == TriggerZoneCategory.Category02;
+                            if (isTrigFb) MoveObj.MoveTriggerZoneHeight(obj, e, moveObj_lastMouseXY, oldPos, move_Invert);
+                            else MoveObj.MoveObjRotationAnglesXYZ(obj, e, moveObj_lastMouseXY, oldPos, MoveObj.MoveDirection.X, move_Invert);
                         }
 
                     }
@@ -1024,7 +1172,7 @@ namespace Re4QuadExtremeEditor.src.Controls
 
         private void moveObjHorizontal2_MouseMove(object sender, MouseEventArgs e)
         {
-            if (EnableHorisontal2 && moveObjHorisontal2_mouseDown)
+            if (moveObjHorisontal2_mouseDown)
             {
                 foreach (TreeNode item in DataBase.SelectedNodes.Values)
                 {
@@ -1032,9 +1180,17 @@ namespace Re4QuadExtremeEditor.src.Controls
                     {
                         Vector3[] oldPos = null;
                         var key = new MoveObj.ObjKey(obj.ObjLineRef, obj.Group);
-                        if (SavedPosition.ContainsKey(key))
+                        if (SavedPosition != null && SavedPosition.ContainsKey(key))
                         {
                             oldPos = SavedPosition[key];
+                        }
+                        if (oldPos == null)
+                        {
+                            try { oldPos = obj.GetObjPostion_ToMove_General(); if (oldPos != null) oldPos = (Vector3[])oldPos.Clone(); } catch { }
+                            if (oldPos == null) try { var tmp = MoveObj.GetSavedPosition(); if (tmp != null && tmp.ContainsKey(key)) oldPos = tmp[key]; } catch { }
+                            // For rotation/scale modes, try fetching correct array type
+                            if (oldPos == null && MoveObjTypeSelected.HasFlag(MoveObjType._Horizontal2RotationObjY)) try { var tmp2 = MoveObj.GetSavedRotationAngles(); if (tmp2 != null && tmp2.ContainsKey(key)) oldPos = tmp2[key]; } catch { }
+                            if (oldPos == null && MoveObjTypeSelected.HasFlag(MoveObjType._Horizontal2ScaleObjY)) try { var tmp3 = MoveObj.GetSavedScales(); if (tmp3 != null && tmp3.ContainsKey(key)) oldPos = tmp3[key]; } catch { }
                         }
 
                         if (MoveObjTypeSelected.HasFlag(MoveObjType._Horizontal2RotationObjY))
@@ -1048,6 +1204,14 @@ namespace Re4QuadExtremeEditor.src.Controls
                         else if (MoveObjTypeSelected.HasFlag(MoveObjType._Horizontal2RotationZoneY))
                         {
                             MoveObj.MoveZoneRotate(obj, e, moveObj_lastMouseXY, oldPos, move_Invert);
+                        }
+                        else
+                        {
+                            TriggerZoneCategory catFb = TriggerZoneCategory.Disable;
+                            try { catFb = obj.GetTriggerZoneCategory(); } catch { }
+                            bool isTrigFb = catFb == TriggerZoneCategory.Category01 || catFb == TriggerZoneCategory.Category02;
+                            if (isTrigFb) MoveObj.MoveZoneRotate(obj, e, moveObj_lastMouseXY, oldPos, move_Invert);
+                            else MoveObj.MoveObjRotationAnglesXYZ(obj, e, moveObj_lastMouseXY, oldPos, MoveObj.MoveDirection.Y, move_Invert);
                         }
                     }
                 }
@@ -1111,7 +1275,7 @@ namespace Re4QuadExtremeEditor.src.Controls
 
         private void moveObjHorizontal3_MouseMove(object sender, MouseEventArgs e)
         {
-            if (EnableHorisontal3 && moveObjHorisontal3_mouseDown)
+            if (moveObjHorisontal3_mouseDown)
             {
                 foreach (TreeNode item in DataBase.SelectedNodes.Values)
                 {
@@ -1119,9 +1283,16 @@ namespace Re4QuadExtremeEditor.src.Controls
                     {
                         Vector3[] oldPos = null;
                         var key = new MoveObj.ObjKey(obj.ObjLineRef, obj.Group);
-                        if (SavedPosition.ContainsKey(key))
+                        if (SavedPosition != null && SavedPosition.ContainsKey(key))
                         {
                             oldPos = SavedPosition[key];
+                        }
+                        if (oldPos == null)
+                        {
+                            try { oldPos = obj.GetObjPostion_ToMove_General(); if (oldPos != null) oldPos = (Vector3[])oldPos.Clone(); } catch { }
+                            if (oldPos == null) try { var tmp = MoveObj.GetSavedPosition(); if (tmp != null && tmp.ContainsKey(key)) oldPos = tmp[key]; } catch { }
+                            if (oldPos == null && MoveObjTypeSelected.HasFlag(MoveObjType._Horizontal3RotationObjZ)) try { var tmp2 = MoveObj.GetSavedRotationAngles(); if (tmp2 != null && tmp2.ContainsKey(key)) oldPos = tmp2[key]; } catch { }
+                            if (oldPos == null && MoveObjTypeSelected.HasFlag(MoveObjType._Horizontal3ScaleObjZ)) try { var tmp3 = MoveObj.GetSavedScales(); if (tmp3 != null && tmp3.ContainsKey(key)) oldPos = tmp3[key]; } catch { }
                         }
 
                         if (MoveObjTypeSelected.HasFlag(MoveObjType._Horizontal3RotationObjZ))
@@ -1140,6 +1311,20 @@ namespace Re4QuadExtremeEditor.src.Controls
                         else if (MoveObjTypeSelected.HasFlag(MoveObjType._Horizontal3AshleyZoneScaleAll))
                         {
                             MoveObj.MoveAshleyZoneScale(obj, e, moveObj_lastMouseXY, oldPos, move_Invert);
+                        }
+                        else
+                        {
+                            TriggerZoneCategory catFb = TriggerZoneCategory.Disable;
+                            try { catFb = obj.GetTriggerZoneCategory(); } catch { }
+                            bool isTrigFb = catFb == TriggerZoneCategory.Category01 || catFb == TriggerZoneCategory.Category02;
+                            if (isTrigFb)
+                            {
+                                MoveObj.MoveTriggerZoneScale(obj, e, moveObj_lastMouseXY, oldPos, move_Invert, catFb);
+                            }
+                            else
+                            {
+                                MoveObj.MoveObjRotationAnglesXYZ(obj, e, moveObj_lastMouseXY, oldPos, MoveObj.MoveDirection.Z, move_Invert);
+                            }
                         }
                     }
                 }

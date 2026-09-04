@@ -1,4 +1,6 @@
 using System;
+using System.Runtime.ExceptionServices;
+using System.Runtime.InteropServices;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using Re4QuadExtremeEditor.src.Class.Shaders;
@@ -33,13 +35,17 @@ void main()
         private static int vaoHandle = 0;
         private static int vboHandle = 0;
         private static int vboCapacityFloats = 0;
+        private static bool glInitialized = false;
 
         private static void EnsureCreated()
         {
-            if (shader != null)
+            if (shader != null && glInitialized)
             {
                 return;
             }
+            // (Re)create the shader + VAO/VBO. The cached handles may have been
+            // invalidated by a model/GL reload (e.g. Force Reload), so always
+            // rebuild from scratch here to avoid drawing through stale native handles.
             shader = new Shader(VertSrc, FragSrc);
 
             vaoHandle = GL.GenVertexArray();
@@ -51,6 +57,22 @@ void main()
             GL.EnableVertexAttribArray((int)ViewerBase.AttribLocation.aPosition);
             GL.BindVertexArray(0);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            glInitialized = true;
+        }
+
+        /// <summary>
+        /// invalidates the cached GL resources. Call after any operation that
+        /// deletes or recreates the GL context/buffers (e.g. Force Reload) so
+        /// the next SetupView rebuilds valid handles instead of drawing through
+        /// stale native handles (which caused an AccessViolation in DrawArrays).
+        /// </summary>
+        public static void ResetGLState()
+        {
+            shader = null;
+            vaoHandle = 0;
+            vboHandle = 0;
+            vboCapacityFloats = 0;
+            glInitialized = false;
         }
 
         /// <summary>must be called once per frame while the context is current</summary>
@@ -64,6 +86,7 @@ void main()
 
         private static void Upload(float[] data)
         {
+            EnsureCreated();
             GL.BindVertexArray(vaoHandle);
             GL.BindBuffer(BufferTarget.ArrayBuffer, vboHandle);
             if (data.Length > vboCapacityFloats)
@@ -124,6 +147,23 @@ void main()
             {
                 return;
             }
+            // A native draw through a stale/invalid GL resource raises an
+            // AccessViolationException (corrupted-state) that cannot be caught by
+            // a normal try/catch and otherwise silently kills the whole app.
+            // Guard it so a single bad draw is logged and the editor keeps running.
+            try
+            {
+                DrawLinesInner(lineVerts, color);
+            }
+            catch (Exception ex)
+            {
+                try { System.IO.File.AppendAllText(@"C:\Temp\RTP_Debug.log", $"{DateTime.Now:HH:mm:ss} DrawLines AV guard ex: {ex.GetType().Name}: {ex.Message}\n"); } catch { }
+            }
+        }
+
+        [HandleProcessCorruptedStateExceptions]
+        private static void DrawLinesInner(float[] lineVerts, Vector4 color)
+        {
             Upload(lineVerts);
             shader.Use();
             shader.SetVector4("mColor", color);

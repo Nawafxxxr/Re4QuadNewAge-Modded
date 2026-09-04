@@ -24,8 +24,8 @@ namespace Re4QuadExtremeEditor
         #region C?digo gerado pelo Windows Form Designer
 
         /// <summary>
-        /// M�todo necess?rio para suporte ao Designer - n?o modifique 
-        /// o conte?do deste m�todo com o editor de c?digo.
+        /// M todo necess?rio para suporte ao Designer - n?o modifique 
+        /// o conte?do deste m todo com o editor de c?digo.
         /// </summary>
         private void InitializeComponent()
         {
@@ -252,6 +252,7 @@ namespace Re4QuadExtremeEditor
             this.toolStripMenuItemItemPositionAtAssociatedObjectLocation = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemHideItemTriggerZone = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemHideItemTriggerRadius = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItemHideItemAura = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemSubMenuSpecial = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemHideSpecialTriggerZone = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemHideExtraObjs = new System.Windows.Forms.ToolStripMenuItem();
@@ -290,10 +291,13 @@ namespace Re4QuadExtremeEditor
             this.toolStripMenuItemResetCamera = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemRefresh = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemRenderSelectViewer = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItemSnakeEnemyMode = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemMisc = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemOptions = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemCredits = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemSelectRoom = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItemLibrary = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItemOpenElementLibrary = new System.Windows.Forms.ToolStripMenuItem();
             this.openFileDialogESL = new System.Windows.Forms.OpenFileDialog();
             this.openFileDialogETS = new System.Windows.Forms.OpenFileDialog();
             this.openFileDialogITA = new System.Windows.Forms.OpenFileDialog();
@@ -360,6 +364,7 @@ namespace Re4QuadExtremeEditor
             this.toolStripMenuItemFile,
             this.toolStripMenuItemEdit,
             this.toolStripMenuItemView,
+            this.toolStripMenuItemLibrary,
             this.toolStripMenuItemMisc,
             this.toolStripMenuItemSelectRoom});
             this.menuStripMenu.Location = new System.Drawing.Point(0, 0);
@@ -1807,7 +1812,8 @@ namespace Re4QuadExtremeEditor
             this.toolStripMenuItemCameraMenu,
             this.toolStripMenuItemResetCamera,
             this.toolStripMenuItemRefresh,
-            this.toolStripMenuItemRenderSelectViewer});
+            this.toolStripMenuItemRenderSelectViewer,
+            this.toolStripMenuItemSnakeEnemyMode});
             this.toolStripMenuItemView.Name = "toolStripMenuItemView";
             this.toolStripMenuItemView.Size = new System.Drawing.Size(44, 20);
             this.toolStripMenuItemView.Text = "View";
@@ -2197,7 +2203,8 @@ namespace Re4QuadExtremeEditor
             this.toolStripMenuItemSubMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripMenuItemItemPositionAtAssociatedObjectLocation,
             this.toolStripMenuItemHideItemTriggerZone,
-            this.toolStripMenuItemHideItemTriggerRadius});
+            this.toolStripMenuItemHideItemTriggerRadius,
+            this.toolStripMenuItemHideItemAura});
             this.toolStripMenuItemSubMenuItem.Name = "toolStripMenuItemSubMenuItem";
             this.toolStripMenuItemSubMenuItem.Size = new System.Drawing.Size(262, 22);
             this.toolStripMenuItemSubMenuItem.Text = "Item Options";
@@ -2226,6 +2233,14 @@ namespace Re4QuadExtremeEditor
             this.toolStripMenuItemHideItemTriggerRadius.Size = new System.Drawing.Size(346, 22);
             this.toolStripMenuItemHideItemTriggerRadius.Text = "Hide Item Trigger Radius";
             this.toolStripMenuItemHideItemTriggerRadius.Click += new System.EventHandler(this.toolStripMenuItemHideItemTriggerRadius_Click);
+            // 
+            // toolStripMenuItemHideItemAura
+            // 
+            this.toolStripMenuItemHideItemAura.Name = "toolStripMenuItemHideItemAura";
+            this.toolStripMenuItemHideItemAura.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Alt | System.Windows.Forms.Keys.D8)));
+            this.toolStripMenuItemHideItemAura.Size = new System.Drawing.Size(346, 22);
+            this.toolStripMenuItemHideItemAura.Text = "Hide Item Aura";
+            this.toolStripMenuItemHideItemAura.Click += new System.EventHandler(this.toolStripMenuItemHideItemAura_Click);
             // 
             // toolStripMenuItemSubMenuSpecial
             // 
@@ -2328,8 +2343,7 @@ namespace Re4QuadExtremeEditor
             this.toolStripMenuItemSelectedGroupDown,
             this.toolStripSeparatorLight1,
             this.toolStripMenuItemEnableLightColor,
-            this.toolStripSeparatorLight2,
-            this.toolStripMenuItemSaveLIT});
+            this.toolStripSeparatorLight2});
             this.toolStripMenuItemSubMenuLight.Name = "toolStripMenuItemSubMenuLight";
             this.toolStripMenuItemSubMenuLight.Size = new System.Drawing.Size(262, 22);
             this.toolStripMenuItemSubMenuLight.Text = "Light Options";
@@ -2551,6 +2565,31 @@ namespace Re4QuadExtremeEditor
             this.toolStripMenuItemRenderSelectViewer.Text = "Debug Render Select Viewer";
             this.toolStripMenuItemRenderSelectViewer.Visible = false;
             this.toolStripMenuItemRenderSelectViewer.Click += new System.EventHandler(this.toolStripMenuItemRenderSelectViewer_Click);
+            // 
+            // toolStripMenuItemSnakeEnemyMode
+            // 
+            this.toolStripMenuItemSnakeEnemyMode.CheckOnClick = true;
+            this.toolStripMenuItemSnakeEnemyMode.Checked = false;
+            this.toolStripMenuItemSnakeEnemyMode.Name = "toolStripMenuItemSnakeEnemyMode";
+            this.toolStripMenuItemSnakeEnemyMode.Size = new System.Drawing.Size(262, 22);
+            this.toolStripMenuItemSnakeEnemyMode.Text = "Snake - Enemy Model";
+            this.toolStripMenuItemSnakeEnemyMode.Click += new System.EventHandler(this.toolStripMenuItemSnakeEnemyMode_Click);
+            // 
+            // toolStripMenuItemLibrary
+            // 
+            this.toolStripMenuItemLibrary.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripMenuItemLibrary.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripMenuItemOpenElementLibrary});
+            this.toolStripMenuItemLibrary.Name = "toolStripMenuItemLibrary";
+            this.toolStripMenuItemLibrary.Size = new System.Drawing.Size(57, 20);
+            this.toolStripMenuItemLibrary.Text = "Library";
+            // 
+            // toolStripMenuItemOpenElementLibrary
+            // 
+            this.toolStripMenuItemOpenElementLibrary.Name = "toolStripMenuItemOpenElementLibrary";
+            this.toolStripMenuItemOpenElementLibrary.Size = new System.Drawing.Size(195, 22);
+            this.toolStripMenuItemOpenElementLibrary.Text = "Open Element Library";
+            this.toolStripMenuItemOpenElementLibrary.Click += new System.EventHandler(this.toolStripMenuItemOpenElementLibrary_Click);
             // 
             // toolStripMenuItemMisc
             // 
@@ -2995,7 +3034,7 @@ namespace Re4QuadExtremeEditor
             this.MinimumSize = new System.Drawing.Size(900, 538);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "RE4 QUAD EXTREME EDITOR [NEW AGE] | V.1.2.4 | YOUTUBE.COM/@JADERLINK  [THEME FIX 2026-08-29 16:40 SELECTION V2]";
+            this.Text = "RE4 QUAD EXTREME EDITOR [NEW AGE] | V.1.0.0 | YOUTUBE.COM/@JADERLINK";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.MainForm_KeyDown);
             this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.MainForm_KeyUp);
@@ -3024,6 +3063,8 @@ namespace Re4QuadExtremeEditor
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemView;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemMisc;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSelectRoom;
+        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemLibrary;
+        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemOpenElementLibrary;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemOpen;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemOpenESL;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemNewFile;
@@ -3126,7 +3167,9 @@ namespace Re4QuadExtremeEditor
         private System.Windows.Forms.SaveFileDialog saveFileDialogConvertITA;
         private System.Windows.Forms.SaveFileDialog saveFileDialogConvertAEV;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemHideItemTriggerRadius;
+        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemHideItemAura;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemRenderSelectViewer;
+        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSnakeEnemyMode;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemHideLateralMenu;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemHideBottomMenu;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSubMenuRoom;

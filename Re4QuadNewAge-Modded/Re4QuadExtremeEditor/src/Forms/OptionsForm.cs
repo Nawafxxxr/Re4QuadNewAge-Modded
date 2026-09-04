@@ -2504,6 +2504,8 @@ namespace Re4QuadExtremeEditor.src.Forms
             cfg.UseDarkerGrayTheme = optionsDark;
             cfg.UseLightTheme = !optionsDark;
             cfg.UseInvertedMouseButtons = getInvertMouse();
+            if (Globals.BackupConfigs != null) Globals.BackupConfigs.UseInvertedMouseButtons = cfg.UseInvertedMouseButtons;
+            try { foreach (System.Windows.Forms.Form f in System.Windows.Forms.Application.OpenForms) if (f is MainForm mf) mf.ApplyInvertedMouseButtons(); } catch { }
 
             if (selectedLangIndex <= 0)
             {

@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -66,6 +67,15 @@ namespace Re4QuadExtremeEditor.src.Class.Files
         public ushort Distance;
     }
 
+    public class RtpSnapshot
+    {
+        public ushort HdrUnk004;
+        public List<byte[]> NodesRaw;
+        public List<RtpDistanceEntry> Distances;
+        public byte[] Connections;
+        public byte[] TrailingPadding;
+    }
+
     /// <summary>
     /// RE4 UHD "PTR2" route/path file (enemy navigation network).
     /// Header (24 bytes): "PTR2", u16 unknown(always 0), u16 NodeCount,
@@ -85,6 +95,53 @@ namespace Re4QuadExtremeEditor.src.Class.Files
         private byte[] TrailingPadding = new byte[0];
 
         public ushort IdForNewNode = 0;
+
+        // suppress undo push when restoring snapshot (undo/redo itself)
+        internal static bool SuppressUndo = false;
+
+        public RtpSnapshot CaptureSnapshot()
+        {
+            var snap = new RtpSnapshot();
+            snap.HdrUnk004 = HdrUnk004;
+            snap.NodesRaw = new List<byte[]>();
+            foreach (var n in Nodes)
+            {
+                var copy = new byte[16];
+                Array.Copy(n.Raw, copy, 16);
+                snap.NodesRaw.Add(copy);
+            }
+            snap.Distances = new List<RtpDistanceEntry>(Distances);
+            snap.Connections = (byte[])(Connections != null ? Connections.Clone() : new byte[0]);
+            snap.TrailingPadding = (byte[])(TrailingPadding != null ? TrailingPadding.Clone() : new byte[0]);
+            return snap;
+        }
+
+        public void RestoreSnapshot(RtpSnapshot snap)
+        {
+            if (snap == null) return;
+            SuppressUndo = true;
+            try
+            {
+                HdrUnk004 = snap.HdrUnk004;
+                Nodes.Clear();
+                if (snap.NodesRaw != null)
+                {
+                    foreach (var raw in snap.NodesRaw)
+                    {
+                        var rec = new RtpNodeRecord();
+                        Array.Copy(raw, rec.Raw, Math.Min(16, raw.Length));
+                        Nodes.Add(rec);
+                    }
+                }
+                Distances.Clear();
+                if (snap.Distances != null) Distances.AddRange(snap.Distances);
+                Connections = snap.Connections != null ? (byte[])snap.Connections.Clone() : new byte[0];
+                TrailingPadding = snap.TrailingPadding != null ? (byte[])snap.TrailingPadding.Clone() : new byte[0];
+                IdForNewNode = Nodes.Count > 0 ? (ushort)(Nodes.Count - 1) : (ushort)0;
+                SyncTreeNodesToKeys();
+            }
+            finally { SuppressUndo = false; }
+        }
 
         public File_RTP_Group()
         {
@@ -190,8 +247,189 @@ namespace Re4QuadExtremeEditor.src.Class.Files
             Array.Copy(all, used, TrailingPadding, 0, TrailingPadding.Length);
         }
 
+        #region validation and auto-fix for save (prevents in-game crash)
+
+        /// <summary>
+        /// Called automatically before saving. Fixes the two crash causes observed
+        /// in r100 0000.RTP (11 nodes): isolated nodes (CC==0) and disconnected graph
+        /// (two components 0-4 vs 5-10 after deleting the 4-7 bridge). Game's
+        /// pathfinder expects a single connected component; next-hop = self for
+        /// unreachable pairs causes enemy AI to hang/crash.
+        /// </summary>
+        public bool ValidateAndFixForSave(out string report)
+        {
+            report = "";
+            if (Nodes.Count == 0) return true;
+            bool fixedAny = false;
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+
+            // 1 - remove dangling distance entries (target >= N or self-loop) and rebuild if needed
+            var local = new List<List<RtpDistanceEntry>>();
+            for (int i = 0; i < Nodes.Count; i++) local.Add(GetNodeEntries((ushort)i));
+            bool hadDangling = false;
+            for (int i = 0; i < local.Count; i++)
+            {
+                int before = local[i].Count;
+                local[i].RemoveAll(e => e.TargetNode >= Nodes.Count || e.TargetNode == i);
+                // dedup: keep first occurrence of each target
+                var dedup = new List<RtpDistanceEntry>();
+                var seen = new HashSet<ushort>();
+                foreach (var e in local[i])
+                {
+                    if (seen.Add(e.TargetNode)) dedup.Add(e);
+                    else hadDangling = true;
+                }
+                local[i] = dedup;
+                if (local[i].Count != before) hadDangling = true;
+            }
+            if (hadDangling)
+            {
+                FlattenFromLocalLists(local);
+                sb.AppendLine("- removed dangling/self-loop edges");
+                fixedAny = true;
+            }
+
+            // 2 - fix isolated nodes (CC==0) by linking to nearest neighbor in 3D
+            // Batch the links to avoid O(N) rebuilds: collect pairs then flatten once
+            var isolatedPairs = new List<Tuple<int, int>>();
+            for (int i = 0; i < Nodes.Count; i++)
+            {
+                if (local[i].Count == 0)
+                {
+                    int nearest = -1;
+                    double best = double.MaxValue;
+                    for (int j = 0; j < Nodes.Count; j++)
+                    {
+                        if (j == i) continue;
+                        double d = Distance3D(Nodes[i], Nodes[j]);
+                        if (d < best) { best = d; nearest = j; }
+                    }
+                    if (nearest >= 0)
+                    {
+                        // two-way
+                        if (!local[i].Any(e => e.TargetNode == nearest))
+                        {
+                            var e = new RtpDistanceEntry { TargetNode = (ushort)nearest, Distance = ComputeEdgeDistance(Nodes[i], Nodes[nearest]) };
+                            local[i].Add(e);
+                        }
+                        if (!local[nearest].Any(e => e.TargetNode == i))
+                        {
+                            var e2 = new RtpDistanceEntry { TargetNode = (ushort)i, Distance = ComputeEdgeDistance(Nodes[nearest], Nodes[i]) };
+                            local[nearest].Add(e2);
+                        }
+                        isolatedPairs.Add(Tuple.Create(i, nearest));
+                    }
+                }
+            }
+            if (isolatedPairs.Count > 0)
+            {
+                FlattenFromLocalLists(local);
+                sb.AppendLine("- fixed " + isolatedPairs.Count + " isolated node(s): " + string.Join(", ", isolatedPairs.Select(p => p.Item1 + "<->" + p.Item2)));
+                fixedAny = true;
+                // refresh local after flatten
+                local.Clear();
+                for (int i = 0; i < Nodes.Count; i++) local.Add(GetNodeEntries((ushort)i));
+            }
+
+            // 3 - fix disconnected graph (multiple components) by bridging closest pair between components
+            // BFS to find reachable from 0
+            var visited = BfsReachable(local, 0);
+            int bridges = 0;
+            while (visited.Count < Nodes.Count)
+            {
+                // find closest pair (u in visited, v not in visited)
+                int bestU = -1, bestV = -1;
+                double bestDist = double.MaxValue;
+                for (int u = 0; u < Nodes.Count; u++) if (visited.Contains(u))
+                {
+                    for (int v = 0; v < Nodes.Count; v++) if (!visited.Contains(v))
+                    {
+                        double d = Distance3D(Nodes[u], Nodes[v]);
+                        if (d < bestDist) { bestDist = d; bestU = u; bestV = v; }
+                    }
+                }
+                if (bestU < 0 || bestV < 0) break;
+                // link two-way
+                if (!local[bestU].Any(e => e.TargetNode == bestV))
+                {
+                    var e = new RtpDistanceEntry { TargetNode = (ushort)bestV, Distance = ComputeEdgeDistance(Nodes[bestU], Nodes[bestV]) };
+                    local[bestU].Add(e);
+                }
+                if (!local[bestV].Any(e => e.TargetNode == bestU))
+                {
+                    var e2 = new RtpDistanceEntry { TargetNode = (ushort)bestU, Distance = ComputeEdgeDistance(Nodes[bestV], Nodes[bestU]) };
+                    local[bestV].Add(e2);
+                }
+                bridges++;
+                // expand visited to include the newly reached component
+                var newly = BfsReachable(local, bestV);
+                foreach (var x in newly) visited.Add(x);
+                // also need to consider that local was mutated, so BFS must use updated adjacency
+            }
+            if (bridges > 0)
+            {
+                FlattenFromLocalLists(local);
+                sb.AppendLine("- bridged " + bridges + " disconnected component(s) to restore single connected graph");
+                fixedAny = true;
+            }
+
+            // always ensure routing matrix matches current distances
+            // (stale matrix after manual DTI edits would still crash even if graph is connected)
+            RebuildRoutingMatrix();
+            if (fixedAny) sb.AppendLine("- rebuilt next-hop matrix (" + Nodes.Count + "x" + Nodes.Count + ")");
+
+            report = sb.ToString().Trim();
+            return !fixedAny || true; // always allow save after fix
+        }
+
+        private static double Distance3D(RtpNodeRecord a, RtpNodeRecord b)
+        {
+            double dx = a.GameX - b.GameX;
+            double dy = a.GameY - b.GameY;
+            double dz = a.GameZ - b.GameZ;
+            return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        private static HashSet<int> BfsReachable(List<List<RtpDistanceEntry>> adj, int start)
+        {
+            var visited = new HashSet<int>();
+            if (start < 0 || start >= adj.Count) return visited;
+            var q = new Queue<int>();
+            q.Enqueue(start);
+            visited.Add(start);
+            while (q.Count > 0)
+            {
+                int u = q.Dequeue();
+                foreach (var e in adj[u])
+                {
+                    int v = e.TargetNode;
+                    if (v < 0 || v >= adj.Count) continue;
+                    if (visited.Add(v)) q.Enqueue(v);
+                    // also need reverse edges: adjacency is directed via Distance table, but game treats links as undirected for reachability?
+                    // So also consider incoming edges: scan all lists for edges pointing to u
+                }
+                // include reverse reachability: any node that links to u is also reachable in undirected sense
+                for (int i = 0; i < adj.Count; i++)
+                {
+                    if (visited.Contains(i)) continue;
+                    if (adj[i].Any(x => x.TargetNode == u))
+                    {
+                        visited.Add(i);
+                        q.Enqueue(i);
+                    }
+                }
+            }
+            return visited;
+        }
+
+        #endregion
+
         public void WriteTo(Stream stream)
         {
+            // auto-fix before writing: prevents crash from isolated/disconnected graph
+            string _rep;
+            ValidateAndFixForSave(out _rep);
+
             int nodeCount = Nodes.Count;
             int distCount = Distances.Count;
 
@@ -306,6 +544,16 @@ namespace Re4QuadExtremeEditor.src.Class.Files
         public void LinkNodes(int a, int b)
         {
             if (a == b || a < 0 || b < 0 || a >= Nodes.Count || b >= Nodes.Count) return;
+            // check already linked - no change -> no undo
+            var preCheck = GetNodeEntries((ushort)a);
+            bool already = preCheck.Any(x => x.TargetNode == b);
+            var preCheck2 = GetNodeEntries((ushort)b);
+            if (already && preCheck2.Any(x => x.TargetNode == a)) return;
+
+            RtpSnapshot before = null;
+            bool doPush = !SuppressUndo;
+            if (doPush) before = CaptureSnapshot();
+
             List<List<RtpDistanceEntry>> local = new List<List<RtpDistanceEntry>>();
             for (int i = 0; i < Nodes.Count; i++) local.Add(GetNodeEntries((ushort)i));
 
@@ -326,6 +574,13 @@ namespace Re4QuadExtremeEditor.src.Class.Files
 
             FlattenFromLocalLists(local);
             RebuildRoutingMatrix();
+
+            if (doPush)
+            {
+                var after = CaptureSnapshot();
+                Re4QuadExtremeEditor.src.Class.UndoSystem.PushRtp(this, before, after, "RTP link " + a + "<->" + b);
+            }
+            try { System.IO.File.AppendAllText(@"C:\Temp\RTP_Debug.log", $"{DateTime.Now:HH:mm:ss} LinkNodes {a}<->{b} N={Nodes.Count} D={Distances.Count} segs={GetLinkSegmentsGL().Count}\n"); } catch {}
         }
 
         /// <summary>
@@ -334,6 +589,14 @@ namespace Re4QuadExtremeEditor.src.Class.Files
         public void UnlinkNodes(int a, int b)
         {
             if (a < 0 || b < 0 || a >= Nodes.Count || b >= Nodes.Count) return;
+            var entriesA = GetNodeEntries((ushort)a);
+            var entriesB = GetNodeEntries((ushort)b);
+            if (!entriesA.Any(x => x.TargetNode == b) && !entriesB.Any(x => x.TargetNode == a)) return;
+
+            RtpSnapshot before = null;
+            bool doPush = !SuppressUndo;
+            if (doPush) before = CaptureSnapshot();
+
             List<List<RtpDistanceEntry>> local = new List<List<RtpDistanceEntry>>();
             for (int i = 0; i < Nodes.Count; i++) local.Add(GetNodeEntries((ushort)i));
 
@@ -342,18 +605,42 @@ namespace Re4QuadExtremeEditor.src.Class.Files
 
             FlattenFromLocalLists(local);
             RebuildRoutingMatrix();
+
+            if (doPush)
+            {
+                var after = CaptureSnapshot();
+                Re4QuadExtremeEditor.src.Class.UndoSystem.PushRtp(this, before, after, "RTP unlink " + a + "<->" + b);
+            }
+            try { System.IO.File.AppendAllText(@"C:\Temp\RTP_Debug.log", $"{DateTime.Now:HH:mm:ss} UnlinkNodes {a}<->{b} N={Nodes.Count} D={Distances.Count} segs={GetLinkSegmentsGL().Count}\n"); } catch {}
         }
 
         /// <summary>
         /// Floyd-Warshall over the link graph; writes the next-hop matrix the game uses:
         /// Connections[i*N+j] = neighbor of i that leads toward j (self when unreachable/self)
         /// </summary>
+        private void EnsureNodeRtpBound()
+        {
+            try
+            {
+                if (DataBase.FileRTP == this && DataBase.NodeRTP != null)
+                {
+                    DataBase.NodeRTP.MethodsForGL = this.MethodsForGL;
+                    DataBase.NodeRTP.DisplayMethods = this.DisplayMethods;
+                    DataBase.NodeRTP.MoveMethods = this.MoveMethods;
+                    DataBase.NodeRTP.ChangeAmountMethods = this.ChangeAmountMethods;
+                    DataBase.NodeRTP.PropertyMethods = this.Methods;
+                }
+            }
+            catch { }
+        }
+
         public void RebuildRoutingMatrix()
         {
             int n = Nodes.Count;
             if (n == 0)
             {
                 Connections = new byte[0];
+                EnsureNodeRtpBound();
                 return;
             }
 
@@ -424,6 +711,7 @@ namespace Re4QuadExtremeEditor.src.Class.Files
                     Connections[i * n + j] = (byte)next[i, j];
                 }
             }
+            EnsureNodeRtpBound();
         }
 
         #endregion
@@ -437,6 +725,10 @@ namespace Re4QuadExtremeEditor.src.Class.Files
                 return ushort.MaxValue;
             }
 
+            RtpSnapshot before = null;
+            bool doPush = !SuppressUndo;
+            if (doPush) before = CaptureSnapshot();
+
             RtpNodeRecord n = new RtpNodeRecord();
             // spawn at origin; user moves it into place afterwards
             n.FileX = 0f;
@@ -449,6 +741,12 @@ namespace Re4QuadExtremeEditor.src.Class.Files
             RebuildRoutingMatrix();
             IdForNewNode = (ushort)(Nodes.Count - 1);
             LastAddedNodeID = IdForNewNode;
+
+            if (doPush)
+            {
+                var after = CaptureSnapshot();
+                Re4QuadExtremeEditor.src.Class.UndoSystem.PushRtp(this, before, after, "RTP add node " + IdForNewNode);
+            }
             return IdForNewNode;
         }
 
@@ -466,20 +764,54 @@ namespace Re4QuadExtremeEditor.src.Class.Files
                 return ushort.MaxValue;
             }
 
-            RtpNodeRecord src = Nodes[sourceId];
-            ushort newId = AddNewNode(0);
-            if (newId == ushort.MaxValue || newId == sourceId)
+            RtpSnapshot before = null;
+            bool doPush = !SuppressUndo;
+            if (doPush) before = CaptureSnapshot();
+
+            // suppress inner pushes (AddNewNode + LinkNodes) - we will push one combined command
+            bool oldSuppress = SuppressUndo;
+            SuppressUndo = true;
+            ushort newId;
+            try
             {
-                return ushort.MaxValue;
+                RtpNodeRecord src = Nodes[sourceId];
+                newId = AddNewNode(0);
+                if (newId == ushort.MaxValue || newId == sourceId)
+                {
+                    return ushort.MaxValue;
+                }
+
+                RtpNodeRecord dst = Nodes[newId];
+                dst.FileX = src.GameX + 300f;   // 3 editor units aside, keeps the link line readable
+                dst.GameY = src.GameY;
+                dst.GameZ = src.GameZ;
+
+                LinkNodes(newId, sourceId);
             }
+            finally { SuppressUndo = oldSuppress; }
 
-            RtpNodeRecord dst = Nodes[newId];
-            dst.FileX = src.GameX + 300f;   // 3 editor units aside, keeps the link line readable
-            dst.GameY = src.GameY;
-            dst.GameZ = src.GameZ;
-
-            LinkNodes(newId, sourceId);
+            if (doPush)
+            {
+                var after = CaptureSnapshot();
+                Re4QuadExtremeEditor.src.Class.UndoSystem.PushRtp(this, before, after, "RTP duplicate " + sourceId + "->" + newId);
+            }
+            try { System.IO.File.AppendAllText(@"C:\Temp\RTP_Debug.log", $"{DateTime.Now:HH:mm:ss} DuplicateNode {sourceId}->{newId} N={Nodes.Count} D={Distances.Count} segs={GetLinkSegmentsGL().Count}\n"); } catch {}
             return newId;
+        }
+
+        /// <summary>Overwrites a node's position (and raw fields) with a stored library element.</summary>
+        public void ApplyStoredNode(ushort id, float x, float y, float z, ushort distanceTableIndex, ushort connectionCount)
+        {
+            if (id >= Nodes.Count)
+            {
+                return;
+            }
+            RtpNodeRecord nd = Nodes[id];
+            nd.FileX = x;
+            nd.FileY = y;
+            nd.FileZ = z;
+            nd.DistanceTableIndex = distanceTableIndex;
+            nd.ConnectionCount = connectionCount;
         }
 
         public ushort LastAddedNodeID = 0;
@@ -487,6 +819,10 @@ namespace Re4QuadExtremeEditor.src.Class.Files
         private void RemoveNodeInternal(int index)
         {
             if (index < 0 || index >= Nodes.Count) return;
+
+            RtpSnapshot before = null;
+            bool doPush = !SuppressUndo;
+            if (doPush) before = CaptureSnapshot();
 
             // snapshot per-node entry lists BEFORE touching anything
             List<List<RtpDistanceEntry>> local = new List<List<RtpDistanceEntry>>();
@@ -511,6 +847,12 @@ namespace Re4QuadExtremeEditor.src.Class.Files
 
             FlattenFromLocalLists(local);
             RebuildRoutingMatrix();
+
+            if (doPush)
+            {
+                var after = CaptureSnapshot();
+                Re4QuadExtremeEditor.src.Class.UndoSystem.PushRtp(this, before, after, "RTP delete node " + index);
+            }
         }
 
         public void RemoveNodeID(ushort ID)
@@ -631,26 +973,45 @@ namespace Re4QuadExtremeEditor.src.Class.Files
 
         /// <summary>
         /// all link segments in GL scale, built from the distance table
+        /// robust version: uses owner mapping + dedup so line appears even if DTI is
+        /// temporarily stale after Force Reload (previous version skipped 18->2 because
+        /// it only checked t <= i from the lower node's list and missed the new edge
+        /// when DTI was not yet flattened).
         /// </summary>
         public List<Vector3[]> GetLinkSegmentsGL()
         {
             List<Vector3[]> segs = new List<Vector3[]>();
+            if (Nodes.Count == 0 || Distances.Count == 0) return segs;
+
+            // build owner mapping like RebuildRoutingMatrix does
+            int[] owner = new int[Distances.Count];
             for (int i = 0; i < Nodes.Count; i++)
             {
-                ushort dti = Nodes[i].DistanceTableIndex;
-                ushort cc = Nodes[i].ConnectionCount;
+                int dti = Nodes[i].DistanceTableIndex;
+                int cc = Nodes[i].ConnectionCount;
                 for (int k = 0; k < cc; k++)
                 {
                     int idx = dti + k;
-                    if (idx >= Distances.Count) break;
-                    ushort t = Distances[idx].TargetNode;
-                    if (t >= Nodes.Count || t <= i) continue; // draw each pair once, from lower index
-                    segs.Add(new Vector3[]
-                    {
-                        new Vector3(Nodes[i].GameX / UnitScale, Nodes[i].GameY / UnitScale, Nodes[i].GameZ / UnitScale),
-                        new Vector3(Nodes[t].GameX / UnitScale, Nodes[t].GameY / UnitScale, Nodes[t].GameZ / UnitScale)
-                    });
+                    if (idx < 0 || idx >= owner.Length) break;
+                    owner[idx] = i;
                 }
+            }
+
+            var seen = new HashSet<string>();
+            for (int idx = 0; idx < Distances.Count; idx++)
+            {
+                int src = owner[idx];
+                int tgt = Distances[idx].TargetNode;
+                if (tgt < 0 || tgt >= Nodes.Count || src < 0 || src >= Nodes.Count || src == tgt) continue;
+                int a = Math.Min(src, tgt);
+                int b = Math.Max(src, tgt);
+                string key = a + "-" + b;
+                if (!seen.Add(key)) continue;
+                segs.Add(new Vector3[]
+                {
+                    new Vector3(Nodes[a].GameX / UnitScale, Nodes[a].GameY / UnitScale, Nodes[a].GameZ / UnitScale),
+                    new Vector3(Nodes[b].GameX / UnitScale, Nodes[b].GameY / UnitScale, Nodes[b].GameZ / UnitScale)
+                });
             }
             return segs;
         }

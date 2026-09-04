@@ -209,7 +209,12 @@ namespace Re4QuadExtremeEditor.src.Class.MyProperty
         [DynamicTypeDescriptor.Id(0x700, CategoryID2_Links)]
         public int RTP_DisconnectFrom
         {
-            get => CurrentLastLink();
+            // IMPORTANT: must return -1 (empty) so PropertyGrid always sees a change
+            // when user picks a node from the dropdown. Previous version returned
+            // CurrentLastLink() which equals the just-linked node (e.g. 5), so
+            // picking "Node 5" to disconnect was seen as no-change and setter
+            // was never called -> "فك الربط ما انشال" bug.
+            get => -1;
             set
             {
                 if (value >= 0)

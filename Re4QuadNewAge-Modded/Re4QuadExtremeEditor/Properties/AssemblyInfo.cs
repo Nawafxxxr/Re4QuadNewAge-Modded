@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Re4 Quad Extreme Editor [New Age]")]
 [assembly: AssemblyProduct("Re4 Quad Extreme Editor [New Age]")]
-[assembly: AssemblyCopyright("Copyright ©JADERLINK 2024")]
+[assembly: AssemblyCopyright("Copyright @Ruxf 2026")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

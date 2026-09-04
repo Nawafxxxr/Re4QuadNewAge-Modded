@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using Re4QuadExtremeEditor.src;
+using Re4QuadExtremeEditor.src.Class;
 using Re4QuadExtremeEditor.src.Controls;
 
 namespace Re4QuadExtremeEditor
@@ -176,8 +177,6 @@ namespace Re4QuadExtremeEditor
             SuspendLayout();
             try
             {
-                // Keep the original lightweight MenuStrip only. No command toolbar
-                // and no extra app-bar above the viewport.
                 menuStripMenu.Dock = DockStyle.Top;
                 menuStripMenu.Height = 26;
                 menuStripMenu.Padding = new Padding(8, 2, 8, 2);
@@ -191,6 +190,45 @@ namespace Re4QuadExtremeEditor
             {
                 ResumeLayout(true);
             }
+        }
+
+        private void BuildTopGizmoButtons()
+        {
+            // kept for hotkey sync only — toolbar now lives inside viewport bottom bar
+            if (viewportGizmoBar == null) return;
+            viewportGizmoBar.Controls.Clear();
+            // compact 4 buttons like Re4QuadX toolbar — placed inside viewport bottom bar
+            gizmoBtnMove = CreateGizmoToolButton("↔ Move", Globals.CurrentTool == Re4QuadExtremeEditor.src.Class.Enums.EditorTool.Move);
+            gizmoBtnMove.Location = new Point(4, 2);
+            gizmoBtnMove.Width = 72;
+            gizmoBtnMove.Click += (s, e) => SetGizmoTool(Re4QuadExtremeEditor.src.Class.Enums.EditorTool.Move);
+            viewportGizmoBar.Controls.Add(gizmoBtnMove);
+
+            gizmoBtnRotate = CreateGizmoToolButton("⟳ Rotate", Globals.CurrentTool == Re4QuadExtremeEditor.src.Class.Enums.EditorTool.Rotate);
+            gizmoBtnRotate.Location = new Point(80, 2);
+            gizmoBtnRotate.Width = 72;
+            gizmoBtnRotate.Click += (s, e) => SetGizmoTool(Re4QuadExtremeEditor.src.Class.Enums.EditorTool.Rotate);
+            viewportGizmoBar.Controls.Add(gizmoBtnRotate);
+
+            gizmoBtnSpace = CreateGizmoToolButton(Globals.CurrentGizmoSpace == Re4QuadExtremeEditor.src.Class.Enums.GizmoSpace.Local ? "Local" : "World", Globals.CurrentGizmoSpace == Re4QuadExtremeEditor.src.Class.Enums.GizmoSpace.Local);
+            gizmoBtnSpace.Location = new Point(156, 2);
+            gizmoBtnSpace.Width = 64;
+            gizmoBtnSpace.Click += (s, e) => ToggleGizmoSpace();
+            viewportGizmoBar.Controls.Add(gizmoBtnSpace);
+
+            Button gizmoToggle2 = CreateGizmoToolButton(Re4QuadExtremeEditor.src.Class.Gizmo.Enabled ? "Gizmo: ON" : "Gizmo: OFF", Re4QuadExtremeEditor.src.Class.Gizmo.Enabled);
+            gizmoToggle2.Location = new Point(224, 2);
+            gizmoToggle2.Width = 78;
+            gizmoToggle2.Tag = "toggle";
+            UpdateGizmoToggleButton(gizmoToggle2);
+            gizmoToggle2.Click += (s, e) =>
+            {
+                Re4QuadExtremeEditor.src.Class.Gizmo.Enabled = !Re4QuadExtremeEditor.src.Class.Gizmo.Enabled;
+                UpdateGizmoToggleButton(gizmoToggle2);
+                glControl.Invalidate();
+            };
+            viewportGizmoBar.Controls.Add(gizmoToggle2);
+            viewportGizmoBar.Width = 306;
         }
 
         private void BuildLeftScenePanel()
@@ -408,6 +446,12 @@ namespace Re4QuadExtremeEditor
             UpdateInspectorHeader();
         }
 
+        // --- Gizmo toolbar (Re4QuadX parity) ---
+        private Panel viewportGizmoBar;
+        private Button gizmoBtnMove;
+        private Button gizmoBtnRotate;
+        private Button gizmoBtnSpace;
+
         private void BuildViewportPanel()
         {
             Control panel = splitContainerRight.Panel1;
@@ -425,13 +469,82 @@ namespace Re4QuadExtremeEditor
                 Radius = 8
             };
 
-            // No header, no title strip, no extra blue/dark band.
-            // The OpenGL viewport owns the full card area.
             glControl.Dock = DockStyle.Fill;
             glControl.Margin = new Padding(0);
             modernViewportCard.Controls.Add(glControl);
+
             panel.Controls.Add(modernViewportCard);
             panel.ResumeLayout(true);
+
+            // initial sync
+            UpdateGizmoToolButtons();
+            UpdateGizmoSpaceButton();
+        }
+
+        private Button CreateGizmoToolButton(string text, bool active)
+        {
+            var b = new Button
+            {
+                Text = text,
+                Width = 74,
+                Height = 20,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = active ? DarkTheme.Selection : DarkTheme.Surface,
+                ForeColor = active ? DarkTheme.Text : DarkTheme.TextSecondary,
+                Font = new Font("Segoe UI", 7f, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                TabStop = false
+            };
+            b.FlatAppearance.BorderSize = 1;
+            b.FlatAppearance.BorderColor = DarkTheme.BorderSoft;
+            b.FlatAppearance.MouseOverBackColor = DarkTheme.Surface3;
+            b.FlatAppearance.MouseDownBackColor = DarkTheme.Selection;
+            return b;
+        }
+
+        private void SetGizmoTool(Re4QuadExtremeEditor.src.Class.Enums.EditorTool tool)
+        {
+            Globals.CurrentTool = tool;
+            UpdateGizmoToolButtons();
+            glControl.Invalidate();
+            EditorConsole.Log("Gizmo tool: " + tool);
+        }
+
+        private void ToggleGizmoSpace()
+        {
+            Globals.CurrentGizmoSpace = Globals.CurrentGizmoSpace == Re4QuadExtremeEditor.src.Class.Enums.GizmoSpace.World
+                ? Re4QuadExtremeEditor.src.Class.Enums.GizmoSpace.Local
+                : Re4QuadExtremeEditor.src.Class.Enums.GizmoSpace.World;
+            UpdateGizmoSpaceButton();
+            glControl.Invalidate();
+            EditorConsole.Log("Gizmo space: " + Globals.CurrentGizmoSpace);
+        }
+
+        private void UpdateGizmoToolButtons()
+        {
+            if (gizmoBtnMove == null) return;
+            bool isMove = Globals.CurrentTool == Re4QuadExtremeEditor.src.Class.Enums.EditorTool.Move;
+            gizmoBtnMove.BackColor = isMove ? DarkTheme.Selection : DarkTheme.Surface;
+            gizmoBtnMove.ForeColor = isMove ? DarkTheme.Text : DarkTheme.TextSecondary;
+            gizmoBtnRotate.BackColor = !isMove ? DarkTheme.Selection : DarkTheme.Surface;
+            gizmoBtnRotate.ForeColor = !isMove ? DarkTheme.Text : DarkTheme.TextSecondary;
+        }
+
+        private void UpdateGizmoSpaceButton()
+        {
+            if (gizmoBtnSpace == null) return;
+            bool isLocal = Globals.CurrentGizmoSpace == Re4QuadExtremeEditor.src.Class.Enums.GizmoSpace.Local;
+            gizmoBtnSpace.Text = isLocal ? "Local" : "World";
+            gizmoBtnSpace.BackColor = isLocal ? DarkTheme.Selection : DarkTheme.Surface;
+        }
+
+        private void UpdateGizmoToggleButton(Button b)
+        {
+            if (b == null) return;
+            bool on = Re4QuadExtremeEditor.src.Class.Gizmo.Enabled;
+            b.Text = on ? "Gizmo: ON" : "Gizmo: OFF";
+            b.BackColor = on ? DarkTheme.Selection : DarkTheme.Surface;
+            b.ForeColor = on ? Color.FromArgb(110, 200, 120) : DarkTheme.TextSecondary;
         }
 
         private void StyleBottomControlDeck()
@@ -479,6 +592,32 @@ namespace Re4QuadExtremeEditor
                 modernControlsCard.BringToFront();
             }
 
+            // Gizmo bar beside Controls/Console tabs — extended bar space (user requested)
+            // Hosted in the bottom deck's top area, themed like the rest of the app
+            if (viewportGizmoBar == null)
+                viewportGizmoBar = new Panel { Height = 24, BackColor = DarkTheme.Surface, Padding = new Padding(4, 2, 4, 2) };
+            else
+                viewportGizmoBar.BackColor = DarkTheme.Surface;
+            // place it as an overlay on the utilityPanel header: dock top of Panel2, right-aligned buttons
+            viewportGizmoBar.Dock = DockStyle.None;
+            viewportGizmoBar.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            viewportGizmoBar.Height = 24;
+            // position will be set after layout; ensure it sits in the extended bar beside the tabs
+            panel.Controls.Add(viewportGizmoBar);
+            viewportGizmoBar.BringToFront();
+            BuildTopGizmoButtons();
+            // keep it at top-right of the bottom deck, beside the tab headers
+            panel.Resize += (s, e) =>
+            {
+                if (viewportGizmoBar != null && panel.Width > 340)
+                    viewportGizmoBar.Location = new Point(panel.Width - viewportGizmoBar.Width - 4, 2);
+            };
+            // initial position
+            if (panel.Width > 0)
+                viewportGizmoBar.Location = new Point(Math.Max(4, panel.Width - viewportGizmoBar.Width - 4), 2);
+            else
+                viewportGizmoBar.Location = new Point(4, 2);
+
             // The two legacy control decks remain side-by-side. The main form minimum
             // width prevents them from overlapping when the window is resized.
         }
@@ -519,6 +658,15 @@ namespace Re4QuadExtremeEditor
             if (modernPropertyCard != null) modernPropertyCard.BackColor = DarkTheme.Surface;
             if (modernViewportCard != null) modernViewportCard.BackColor = Color.Black;
             if (modernControlsCard != null) modernControlsCard.BackColor = DarkTheme.Surface;
+            if (viewportGizmoBar != null) viewportGizmoBar.BackColor = DarkTheme.Surface;
+            if (viewportGizmoBar != null)
+            {
+                UpdateGizmoToolButtons();
+                UpdateGizmoSpaceButton();
+                foreach (Control c in viewportGizmoBar.Controls)
+                    if (c is Button b && b.Tag as string == "toggle")
+                        UpdateGizmoToggleButton(b);
+            }
 
             // DarkTheme.Apply() also styles normal TextBox controls globally.
             // The compact scene search is intentionally a borderless editor

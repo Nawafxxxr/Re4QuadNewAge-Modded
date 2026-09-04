@@ -411,6 +411,9 @@ namespace Re4QuadExtremeEditor.src.Class.MyProperty
             ChangePropertyIsBrowsable(nameof(PromptMessage_ListBox), !IsExtra);
             ChangePropertyIsBrowsable(nameof(Unknown_PI), !IsExtra);
             ChangePropertyIsBrowsable(nameof(Unknown_PO), !IsExtra);
+            bool IsShowEnemyModel = !IsExtra && groupType == GroupType.ITA;
+            ChangePropertyIsBrowsable(nameof(EnemyID_ForSnake_ListBox), IsShowEnemyModel);
+            ChangePropertyIsBrowsable(nameof(EnemyID_ForSnake_Hex), IsShowEnemyModel && Globals.PropertyGridUseHexFloat);
             ChangePropertyIsBrowsable(nameof(Unknown_PU), !IsExtra);
             ChangePropertyIsBrowsable(nameof(Unknown_PK), !IsExtra);
             ChangePropertyIsBrowsable(nameof(MessageColor), !IsExtra);
@@ -1462,6 +1465,59 @@ namespace Re4QuadExtremeEditor.src.Class.MyProperty
             set
             {
                 Methods.SetUnknown_PO(InternalID, GetNewByteArrayValue(value));
+            }
+        }
+
+
+        [CustomCategory(aLang.SpecialGeneralCategory)]
+        [System.ComponentModel.DisplayName("Enemy (ESL-Model)")]
+        [System.ComponentModel.Description("Select an enemy model to appear in the 3D view")]
+        [Editor(typeof(EnemySearchForSnakeEditor), typeof(UITypeEditor))]
+        [DefaultValue(null)]
+        [ReadOnly(false)]
+        [Browsable(false)]
+        [AllowInMultiSelect()]
+        [DynamicTypeDescriptor.Id(0x4C50, CategoryID4_SpecialGeneral)]
+        public UshortObjForListBox EnemyID_ForSnake_ListBox
+        {
+            get
+            {
+                ushort v = GetEnemyIDFromPO();
+                if (ListBoxProperty.EnemiesList.ContainsKey(v) && v != 0xFFFF)
+                {
+                    return ListBoxProperty.EnemiesList[v];
+                }
+                else
+                {
+                    return new UshortObjForListBox(0xFFFF, "XXXX: " + Lang.GetAttributeText(aLang.ListBoxUnknownEnemy));
+                }
+            }
+            set
+            {
+                if (value.ID < 0xFFFF)
+                {
+                    SetEnemyIDIntoPO(value.ID);
+                    updateMethods.UpdateGL();
+                }
+            }
+        }
+
+        [CustomCategory(aLang.SpecialGeneralCategory)]
+        [System.ComponentModel.DisplayName("Enemy ID (ESL-style) Hex")]
+        [TypeConverter(typeof(HexNumberTypeConverter))]
+        [HexNumber()]
+        [DefaultValue(null)]
+        [ReadOnly(false)]
+        [Browsable(false)]
+        [AllowInMultiSelect()]
+        [DynamicTypeDescriptor.Id(0x4C51, CategoryID4_SpecialGeneral)]
+        public ushort EnemyID_ForSnake_Hex
+        {
+            get => GetEnemyIDFromPO();
+            set
+            {
+                SetEnemyIDIntoPO(value);
+                updateMethods.UpdateGL();
             }
         }
 
@@ -4417,6 +4473,22 @@ namespace Re4QuadExtremeEditor.src.Class.MyProperty
                 updateMethods.UpdatePropertyGrid();
                 updateMethods.UpdateGL();
             }
+        }
+
+        ushort GetEnemyIDFromPO()
+        {
+            byte[] po = Methods.ReturnUnknown_PO(InternalID);
+            if (po == null || po.Length < 2)
+            {
+                return 0xFFFF;
+            }
+            return (ushort)((po[0] << 8) | po[1]);
+        }
+
+        public void SetEnemyIDIntoPO(ushort enemyID)
+        {
+            byte[] po = new byte[] { (byte)(enemyID >> 8), (byte)(enemyID & 0xFF), 0x00, 0x00 };
+            Methods.SetUnknown_PO(InternalID, po);
         }
 
         #endregion

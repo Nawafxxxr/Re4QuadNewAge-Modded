@@ -443,6 +443,7 @@ namespace Re4QuadExtremeEditor.src.Class.Enums
         toolStripMenuItemItemPositionAtAssociatedObjectLocation,
         toolStripMenuItemHideItemTriggerZone,
         toolStripMenuItemHideItemTriggerRadius,
+        toolStripMenuItemHideItemAura,
         toolStripMenuItemHideSpecialTriggerZone,
         toolStripMenuItemHideExtraObjs,
         toolStripMenuItemHideOnlyWarpDoor,

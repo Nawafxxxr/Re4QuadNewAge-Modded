@@ -1113,7 +1113,8 @@ namespace Re4QuadExtremeEditor.src.Class.Files
         private Vector3[] GetObjRotationAngles_ToMove(ushort ID) 
         {
             Vector3[] v = new Vector3[1];
-            if (GetSpecialType(ID) == SpecialType.T03_Items)
+            SpecialType st = GetSpecialType(ID);
+            if (st == SpecialType.T03_Items)
             {
                 float AngleZ = 0;
                 if (!(GetRe4Version == Re4Version.V2007PS2 && GetSpecialFileFormat == SpecialFileFormat.AEV))
@@ -1121,6 +1122,24 @@ namespace Re4QuadExtremeEditor.src.Class.Files
                     AngleZ = ReturnItemAngleZ(ID);
                 }
                 v[0] = new Vector3(ReturnItemAngleX(ID), ReturnItemAngleY(ID), AngleZ);
+            }
+            else if (st == SpecialType.T01_WarpDoor)
+            {
+                v[0] = new Vector3(0f, ReturnDestinationFacingAngle(ID), 0f);
+            }
+            else if (st == SpecialType.T10_FixedLadderClimbUp || st == SpecialType.T13_LocalTeleportation)
+            {
+                v[0] = new Vector3(0f, ReturnLocationAndLadderFacingAngle(ID), 0f);
+            }
+            else if (st == SpecialType.T15_AdaGrappleGun)
+            {
+                v[0] = new Vector3(0f, ReturnGrappleGunFacingAngle(ID), 0f);
+            }
+            else if (st == SpecialType.T04_GroupedEnemyTrigger || st == SpecialType.T02_CutSceneEvents || st == SpecialType.T05_Message || st == SpecialType.T0A_DamagesThePlayer || st == SpecialType.T0B_FalseCollision)
+            {
+                // These have trigger zones but also expose a Y facing via the same destination angle storage when present
+                // Fallback: try destination angle if valid, otherwise zero — ensures yellow Y always has something to rotate
+                try { v[0] = new Vector3(0f, ReturnDestinationFacingAngle(ID), 0f); } catch { v[0] = Vector3.Zero; }
             }
             else
             {
@@ -1134,7 +1153,8 @@ namespace Re4QuadExtremeEditor.src.Class.Files
         {
             if (value != null && value.Length >= 1)
             {
-                if (GetSpecialType(ID) == SpecialType.T03_Items)
+                SpecialType st = GetSpecialType(ID);
+                if (st == SpecialType.T03_Items)
                 {
                     SetItemAngleX(ID, value[0].X);
                     SetItemAngleY(ID, value[0].Y);
@@ -1142,6 +1162,22 @@ namespace Re4QuadExtremeEditor.src.Class.Files
                     {
                         SetItemAngleZ(ID, value[0].Z);
                     }
+                }
+                else if (st == SpecialType.T01_WarpDoor)
+                {
+                    SetDestinationFacingAngle(ID, value[0].Y);
+                }
+                else if (st == SpecialType.T10_FixedLadderClimbUp || st == SpecialType.T13_LocalTeleportation)
+                {
+                    SetLocationAndLadderFacingAngle(ID, value[0].Y);
+                }
+                else if (st == SpecialType.T15_AdaGrappleGun)
+                {
+                    SetGrappleGunFacingAngle(ID, value[0].Y);
+                }
+                else if (st == SpecialType.T04_GroupedEnemyTrigger || st == SpecialType.T02_CutSceneEvents || st == SpecialType.T05_Message || st == SpecialType.T0A_DamagesThePlayer || st == SpecialType.T0B_FalseCollision)
+                {
+                    try { SetDestinationFacingAngle(ID, value[0].Y); } catch { }
                 }
             }
         }

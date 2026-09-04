@@ -40,7 +40,67 @@ namespace NewAgeTheRender
         private static readonly Vector3 boundNoneExtras = new Vector3(2f, 2f, 2f);
         private static readonly Vector3 boundNoneQuadCustom = new Vector3(2f, 2f, 2f);
         private static readonly Vector3 boundNoneCAM = new Vector3(1.5f, 1.5f, 1.5f);
-        private static readonly Vector3 boundNoneRTP = new Vector3(0.45f, 0.45f, 0.45f);
+        private static readonly Vector3 boundNoneRTP = new Vector3(0.68f, 0.68f, 0.68f);
+
+        private static float[] GenerateAuraCylinder(Vector3 basePos, float radius, float height, int segments, float rotAngle, bool spikyTop)
+        {
+            var tris = new List<float>(segments * 36);
+            float y0 = basePos.Y;
+            float y1 = basePos.Y + height;
+            float spike = 0.55f;
+            for (int i = 0; i < segments; i++)
+            {
+                float a0 = (float)i / segments * (float)Math.PI * 2f + rotAngle;
+                float a1 = (float)(i + 1) / segments * (float)Math.PI * 2f + rotAngle;
+                float x0 = (float)Math.Cos(a0) * radius, z0 = (float)Math.Sin(a0) * radius;
+                float x1 = (float)Math.Cos(a1) * radius, z1 = (float)Math.Sin(a1) * radius;
+                // spiky top: alternating height
+                float yTop0 = y1 + (spikyTop && (i % 2 == 0) ? spike : 0f);
+                float yTop1 = y1 + (spikyTop && ((i + 1) % 2 == 0) ? spike : 0f);
+                Vector3 p00 = new Vector3(basePos.X + x0, y0, basePos.Z + z0);
+                Vector3 p10 = new Vector3(basePos.X + x1, y0, basePos.Z + z1);
+                Vector3 p01 = new Vector3(basePos.X + x0, yTop0, basePos.Z + z0);
+                Vector3 p11 = new Vector3(basePos.X + x1, yTop1, basePos.Z + z1);
+                // side quad as two tris with spiky top
+                tris.Add(p00.X); tris.Add(p00.Y); tris.Add(p00.Z);
+                tris.Add(p01.X); tris.Add(p01.Y); tris.Add(p01.Z);
+                tris.Add(p11.X); tris.Add(p11.Y); tris.Add(p11.Z);
+                tris.Add(p00.X); tris.Add(p00.Y); tris.Add(p00.Z);
+                tris.Add(p11.X); tris.Add(p11.Y); tris.Add(p11.Z);
+                tris.Add(p10.X); tris.Add(p10.Y); tris.Add(p10.Z);
+                // spike triangle on top edge
+                if (spikyTop)
+                {
+                    float am = (a0 + a1) * 0.5f;
+                    float xm = (float)Math.Cos(am) * radius * 0.92f, zm = (float)Math.Sin(am) * radius * 0.92f;
+                    float yTip = y1 + spike + 0.18f;
+                    Vector3 tip = new Vector3(basePos.X + xm, yTip, basePos.Z + zm);
+                    tris.Add(p01.X); tris.Add(p01.Y); tris.Add(p01.Z);
+                    tris.Add(tip.X); tris.Add(tip.Y); tris.Add(tip.Z);
+                    tris.Add(p11.X); tris.Add(p11.Y); tris.Add(p11.Z);
+                }
+            }
+            // No top cap — open crown as requested
+            return tris.ToArray();
+        }
+        private static float[] GenerateAuraCylinder(Vector3 basePos, float radius, float height, int segments) => GenerateAuraCylinder(basePos, radius, height, segments, 0f, true);
+        private static float[] GenerateAuraDisk(Vector3 center, float radius, int segments)
+        {
+            var tris = new List<float>(segments * 9);
+            for (int i = 0; i < segments; i++)
+            {
+                float a0 = (float)i / segments * (float)Math.PI * 2f;
+                float a1 = (float)(i + 1) / segments * (float)Math.PI * 2f;
+                float x0 = (float)Math.Cos(a0) * radius, z0 = (float)Math.Sin(a0) * radius;
+                float x1 = (float)Math.Cos(a1) * radius, z1 = (float)Math.Sin(a1) * radius;
+                Vector3 p0 = new Vector3(center.X + x0, center.Y, center.Z + z0);
+                Vector3 p1 = new Vector3(center.X + x1, center.Y, center.Z + z1);
+                tris.Add(center.X); tris.Add(center.Y); tris.Add(center.Z);
+                tris.Add(p0.X); tris.Add(p0.Y); tris.Add(p0.Z);
+                tris.Add(p1.X); tris.Add(p1.Y); tris.Add(p1.Z);
+            }
+            return tris.ToArray();
+        }
 
         // temporary diagnostics: how many CAM items were drawn on the last frame
         public static int DebugCamCamsDrawn = 0;
@@ -250,7 +310,8 @@ namespace NewAgeTheRender
                 {
                     RenderFileCAM_Zone_TriggerZone(RenderMode.SelectMode);
                     RenderFileCAM_Cameras(RenderMode.SelectMode);
-                    RenderFileRTP_Nodes(RenderMode.SelectMode);
+                    try { RenderFileRTP_Nodes(RenderMode.SelectMode); }
+                    catch (Exception ex) { Re4QuadExtremeEditor.src.DebugLog.Write("RTP Nodes(Select) ex: " + ex); }
                 }
 
                 RenderQuadCustomPoint(RenderMode.SelectMode);
@@ -279,7 +340,8 @@ namespace NewAgeTheRender
                 {
                     RenderFileCAM_Zone_TriggerZone(RenderMode.BoxMode);
                     RenderFileCAM_Cameras(RenderMode.BoxMode);
-                    RenderFileRTP_Nodes(RenderMode.BoxMode);
+                    try { RenderFileRTP_Nodes(RenderMode.BoxMode); }
+                    catch (Exception ex) { Re4QuadExtremeEditor.src.DebugLog.Write("RTP Nodes(Box) ex: " + ex); }
                 }
 
                 RenderQuadCustomPoint(RenderMode.BoxMode);
@@ -334,6 +396,14 @@ namespace NewAgeTheRender
 
                 //final, transparencia da triggerzone
                 RenderPosTriggerZoneBox();
+                // RTP always on top of transparent triggers but still depth-tested against walls - fixes squares/lines disappearing inside trigger zones
+                if (!CameraViewState.ActiveThisFrame)
+                {
+                    try { RenderFileRTP_NodesOverlay(); }
+                    catch (Exception ex) { Re4QuadExtremeEditor.src.DebugLog.Write("RTP NodesOverlay ex: " + ex); }
+                    try { RenderFileRTP_LinksOverlay(); }
+                    catch (Exception ex) { Re4QuadExtremeEditor.src.DebugLog.Write("RTP LinksOverlay ex: " + ex); }
+                }
             }
 
             // while inside the camera view keep the aim line and the small
@@ -1192,6 +1262,47 @@ namespace NewAgeTheRender
 
                 ushort item_ID = MethodsForGL.GetItemModelID(ID);
 
+                // Snake ITA (ItemNumber 0x1000) rendered as its ESL enemy model instead of the snake item,
+                // but only while the View > "Enemy Model (Snake)" toggle is ON.
+                if (Group == GroupType.ITA && Globals.RenderSnakeAsEnemy && DataBase.FileITA != null && DataBase.FileITA.Lines.ContainsKey(ID)
+                    && DataBase.FileITA.Methods.ReturnItemNumber(ID) == 0x1000)
+                {
+                    byte[] itaPo = DataBase.FileITA.Methods.ReturnUnknown_PO(ID);
+                    ushort EnemiesID = (itaPo != null && itaPo.Length >= 2) ? (ushort)((itaPo[0] << 8) | itaPo[1]) : (ushort)0xFFFF;
+                    if (EnemiesID != 0xFFFF && DataBase.EnemiesIDs.List.ContainsKey(EnemiesID))
+                    {
+                        bool hasEnemyModel = DataBase.EnemiesIDs.List.ContainsKey(EnemiesID)
+                            && DataBase.EnemiesModels.ContainsKey(DataBase.EnemiesIDs.List[EnemiesID].ObjectModel);
+                        if (hasEnemyModel)
+                        {
+                            if (mode == RenderMode.ModelMode)
+                            {
+                                DataBase.EnemiesModels.RenderModel(DataBase.EnemiesIDs.List[EnemiesID].ObjectModel, rspFix);
+                            }
+                            else if (mode == RenderMode.BoxMode)
+                            {
+                                RenderAppModel.BoundingBoxViewer(DataBase.EnemiesModels.GetBoundingBoxLimit(DataBase.EnemiesIDs.List[EnemiesID].ObjectModel), rspFix, mColor);
+                            }
+                            else if (mode == RenderMode.SelectMode)
+                            {
+                                RenderAppModel.BoundingBoxToSelect(DataBase.EnemiesModels.GetBoundingBoxLimit(DataBase.EnemiesIDs.List[EnemiesID].ObjectModel), rspFix, useColor);
+                            }
+                        }
+                        else
+                        {
+                            if (mode == RenderMode.BoxMode)
+                            {
+                                RenderAppModel.NoneBoundingBoxViewer(boundNoneEnemy, -boundNoneEnemy, rspFix, mColor);
+                            }
+                            else if (mode == RenderMode.SelectMode)
+                            {
+                                RenderAppModel.NoneBoundingBoxToSelect(boundNoneEnemy, -boundNoneEnemy, rspFix, useColor);
+                            }
+                        }
+                        return;
+                    }
+                }
+
                 if (DataBase.ItemsIDs.List.ContainsKey(item_ID) && DataBase.ItemsModels.ContainsKey(DataBase.ItemsIDs.List[item_ID].ObjectModel))
                 {
                     if (mode == RenderMode.ModelMode)
@@ -1238,6 +1349,82 @@ namespace NewAgeTheRender
                         RenderAppModel.ItemTrigggerRadiusViewer(new Vector4(MethodsForGL.GetItemPosition(ID), ItemTrigggerRadius), RadiusColor);
                     }
 
+                }
+
+                // Aura preview — always on when enabled (no need to select), selected is brighter
+                if ((mode == RenderMode.BoxMode || mode == RenderMode.ModelMode) && Globals.RenderItemAura)
+                {
+                    try
+                    {
+                        ushort aura = 0xFF;
+                        if (Group == GroupType.ITA && DataBase.FileITA != null && DataBase.FileITA.Lines.ContainsKey(ID))
+                            aura = DataBase.FileITA.Methods.ReturnItemAuraType(ID);
+                        else if (Group == GroupType.AEV && DataBase.FileAEV != null && DataBase.FileAEV.Lines.ContainsKey(ID))
+                            aura = DataBase.FileAEV.Methods.ReturnItemAuraType(ID);
+                        if (aura != 0x00 && aura != 0xFF && aura <= 0x09 && aura != 0x08)
+                        {
+                            Vector3 ipos = MethodsForGL.GetItemPosition(ID);
+                            // Make aura slightly larger than the item's own bounding box so it envelops it
+                            float itemExtent = 0.5f;
+                            try
+                            {
+                                var bb = DataBase.ItemsModels.GetBoundingBoxLimit(DataBase.ItemsIDs.List[item_ID].ObjectModel);
+                                float ex = Math.Max(Math.Max(Math.Abs(bb.UpperBoundary.X - bb.LowerBoundary.X), Math.Abs(bb.UpperBoundary.Y - bb.LowerBoundary.Y)), Math.Abs(bb.UpperBoundary.Z - bb.LowerBoundary.Z)) * 0.5f;
+                                if (ex > 0.1f && ex < 5f) itemExtent = ex * 0.55f;
+                            }
+                            catch { }
+                            Vector4 auraCol = Vector4.Zero; float auraH = 6.8f; float auraR = 0.95f; bool hasSparkle = false; bool renderAura = true;
+                            switch (aura)
+                            {
+                                case 0x01: renderAura = false; hasSparkle = false; break; // Small glint — no aura at all as requested
+                                case 0x02: auraCol = new Vector4(1f, 0.92f, 0.38f, 0.14f); auraH = 7.0f; auraR = 0.98f + itemExtent * 0.45f; break;
+                                case 0x03: auraCol = new Vector4(0.45f, 0.72f, 1f, 0.12f); auraH = 6.8f; auraR = 0.95f + itemExtent * 0.45f; break;
+                                case 0x04: auraCol = new Vector4(0.15f, 1f, 0.38f, 0.14f); auraH = 6.8f; auraR = 0.95f + itemExtent * 0.45f; break;
+                                case 0x05:
+                                case 0x06: auraCol = new Vector4(1f, 0.28f, 0.28f, 0.14f); auraH = 6.8f; auraR = 0.95f + itemExtent * 0.45f; break;
+                                case 0x07: auraCol = new Vector4(0.38f, 0.60f, 1f, 0.10f); auraH = 10.5f; auraR = 1.30f + itemExtent * 0.40f; break;
+                                case 0x08: auraCol = new Vector4(1f, 1f, 1f, 0.24f); auraH = 1.55f; auraR = 0.52f + itemExtent * 0.32f; break; // Short but visible as requested
+                                case 0x09: auraCol = new Vector4(1f, 0.94f, 0.25f, 0.11f); auraH = 10.5f; auraR = 1.30f + itemExtent * 0.40f; break;
+                                default: auraCol = new Vector4(1f, 1f, 1f, 0.10f); break;
+                            }
+                            bool isSelAura = DataBase.SelectedNodes.ContainsKey(item.GetHashCode());
+                            if (!isSelAura) auraCol.W *= 0.62f;
+                            float rot = (float)(DateTime.Now.TimeOfDay.TotalSeconds * 0.85);
+                            float glowPulse = hasSparkle ? (float)(Math.Sin(DateTime.Now.TimeOfDay.TotalSeconds * 2.8) * 0.12 + 1.0) : (float)(Math.Sin(DateTime.Now.TimeOfDay.TotalSeconds * 1.4) * 0.06 + 1.0);
+                            auraCol.W *= glowPulse;
+                            Vector3 basePos = ipos + new Vector3(0, 0.02f, 0);
+                            if (renderAura)
+                            {
+                                float[] tris = GenerateAuraCylinder(basePos, auraR, auraH, 24, rot, true);
+                                CamZoneRender.DrawTrianglesTransparent(tris, auraCol);
+                                float[] glowTris = GenerateAuraCylinder(basePos, auraR * 1.18f, auraH * 1.02f, 24, -rot * 0.6f, true);
+                                Vector4 glowCol = new Vector4(auraCol.X, auraCol.Y, auraCol.Z, auraCol.W * 0.32f);
+                                CamZoneRender.DrawTrianglesTransparent(glowTris, glowCol);
+                            }
+                            if (hasSparkle)
+                            {
+                                // Simple spark shower rising upward — minimal, not exaggerated
+                                double now = DateTime.Now.TimeOfDay.TotalSeconds;
+                                float effH = renderAura ? auraH : 1.4f;
+                                float effR = renderAura ? auraR : 0.32f;
+                                for (int p = 0; p < 4; p++)
+                                {
+                                    float t = (float)((now * 0.75 + p * 0.55) % 1.0);
+                                    float y = basePos.Y + t * effH + 0.15f;
+                                    float ang = (float)(now * 1.4 + p * 1.3);
+                                    float rx = (float)Math.Cos(ang) * effR * 0.28f;
+                                    float rz = (float)Math.Sin(ang) * effR * 0.28f;
+                                    Vector3 sparkPos = new Vector3(basePos.X + rx, y, basePos.Z + rz);
+                                    float alpha = (1f - t) * 0.88f * (isSelAura ? 1f : 0.6f);
+                                    if (alpha < 0.04f) continue;
+                                    RenderAppModel.RenderLitPointColor(sparkPos, new Vector4(1f, 1f, 1f, alpha));
+                                    if (p % 2 == 0)
+                                        RenderAppModel.RenderLitPointColor(sparkPos + new Vector3(0, 0.06f, 0), new Vector4(auraCol.X, auraCol.Y, auraCol.Z, alpha * 0.45f));
+                                }
+                            }
+                        }
+                    }
+                    catch { }
                 }
 
             }
@@ -2433,8 +2620,12 @@ namespace NewAgeTheRender
             if (Globals.RenderFileRTP && DataBase.NodeRTP != null && DataBase.NodeRTP.MethodsForGL != null && DataBase.FileRTP != null)
             {
                 NewAge_RTP_MethodsForGL MethodsForGL = DataBase.NodeRTP.MethodsForGL;
-                foreach (TreeNode item in DataBase.NodeRTP.Nodes)
+                TreeNode[] snap;
+                try { snap = new TreeNode[DataBase.NodeRTP.Nodes.Count]; DataBase.NodeRTP.Nodes.CopyTo(snap, 0); }
+                catch { return; }
+                foreach (TreeNode item in snap)
                 {
+                    if (item == null) continue;
                     if (Re4QuadExtremeEditor.src.Class.IsolateFilter.IsBlocked(item)) continue;
                     ushort ID = ((Object3D)item).ObjLineRef;
 
@@ -2458,24 +2649,95 @@ namespace NewAgeTheRender
                     RenderAppModel.NoneBoundingBoxViewer(boundNoneRTP, -boundNoneRTP, new RspFix(Vector3.One, pos, Matrix4.Identity), mColor);
                 }
 
-                if (mode == RenderMode.BoxMode && MethodsForGL.GetLinkSegments != null)
-                {
-                    List<Vector3[]> segs = MethodsForGL.GetLinkSegments();
-                    if (segs != null && segs.Count > 0)
-                    {
-                        float[] lines = new float[segs.Count * 6];
-                        int o = 0;
-                        foreach (Vector3[] s in segs)
-                        {
-                            lines[o++] = s[0].X; lines[o++] = s[0].Y; lines[o++] = s[0].Z;
-                            lines[o++] = s[1].X; lines[o++] = s[1].Y; lines[o++] = s[1].Z;
-                        }
-                        CamZoneRender.DrawLines(lines, Globals.GL_ColorRTP_Link);
-                    }
-                }
+                // Links are drawn as a final overlay after the room (see RenderFileRTP_LinksOverlay) so they are never hidden behind terrain
+                // Keep only nodes here
             }
         }
 
+        private static void RenderFileRTP_NodesOverlay()
+        {
+            if (!Globals.RenderFileRTP || DataBase.NodeRTP == null || DataBase.NodeRTP.MethodsForGL == null || DataBase.FileRTP == null) return;
+            var MethodsForGL2 = DataBase.NodeRTP.MethodsForGL;
+            TreeNode[] snap;
+            try { snap = new TreeNode[DataBase.NodeRTP.Nodes.Count]; DataBase.NodeRTP.Nodes.CopyTo(snap, 0); }
+            catch { return; }
+            foreach (TreeNode item in snap)
+            {
+                if (item == null) continue;
+                if (Re4QuadExtremeEditor.src.Class.IsolateFilter.IsBlocked(item)) continue;
+                ushort ID = ((Object3D)item).ObjLineRef;
+                Vector4 mColor = Globals.GL_ColorRTP;
+                if (DataBase.SelectedNodes.ContainsKey(item.GetHashCode())) mColor = Globals.GL_ColorSelected;
+                Vector3 pos = MethodsForGL2.GetNodePosition(ID);
+                // Draw again on top of transparent triggers with a tiny depth bias so it never hides inside a trigger
+                GL.Enable(EnableCap.PolygonOffsetFill);
+                GL.PolygonOffset(-1.0f, -1.0f);
+                RenderAppModel.NoneBoundingBoxViewer(boundNoneRTP, -boundNoneRTP, new RspFix(Vector3.One, pos, Matrix4.Identity), mColor);
+                GL.Disable(EnableCap.PolygonOffsetFill);
+            }
+        }
+
+        private static bool IsFinite(Vector3 v)
+        {
+            return !float.IsNaN(v.X) && !float.IsInfinity(v.X) &&
+                   !float.IsNaN(v.Y) && !float.IsInfinity(v.Y) &&
+                   !float.IsNaN(v.Z) && !float.IsInfinity(v.Z);
+        }
+
+        private static void RenderFileRTP_LinksOverlay()
+        {
+            if (!Globals.RenderFileRTP || DataBase.FileRTP == null) return;
+            // FIX: always use FileRTP as ground truth after Force Reload.
+            // Previous version used NodeRTP.MethodsForGL which becomes stale after
+            // Force Reload (old delegate returns 18 segs while FileRTP has 19).
+            // Now fallback is primary.
+            List<Vector3[]> segs = null;
+            List<Vector3[]> fallback = null;
+            if (DataBase.FileRTP.Nodes.Count > 1)
+            {
+                try
+                {
+                    fallback = new List<Vector3[]>();
+                    for (ushort i = 0; i < DataBase.FileRTP.Nodes.Count; i++)
+                    {
+                        var entries = DataBase.FileRTP.GetNodeEntries(i);
+                        foreach (var e in entries)
+                        {
+                            if (e.TargetNode >= DataBase.FileRTP.Nodes.Count || e.TargetNode <= i) continue;
+                            Vector3 p1 = new Vector3(DataBase.FileRTP.Nodes[i].GameX / 100f, DataBase.FileRTP.Nodes[i].GameY / 100f, DataBase.FileRTP.Nodes[i].GameZ / 100f);
+                            Vector3 p2 = new Vector3(DataBase.FileRTP.Nodes[e.TargetNode].GameX / 100f, DataBase.FileRTP.Nodes[e.TargetNode].GameY / 100f, DataBase.FileRTP.Nodes[e.TargetNode].GameZ / 100f);
+                            if (!IsFinite(p1) || !IsFinite(p2)) continue;
+                            fallback.Add(new Vector3[] { p1, p2 });
+                        }
+                    }
+                }
+                catch { fallback = null; }
+            }
+            // primary is now fallback; keep old path as secondary for compatibility
+            segs = fallback;
+            if (segs == null || segs.Count == 0)
+            {
+                try
+                {
+                    if (DataBase.NodeRTP != null && DataBase.NodeRTP.MethodsForGL != null && DataBase.NodeRTP.MethodsForGL.GetLinkSegments != null)
+                        segs = DataBase.NodeRTP.MethodsForGL.GetLinkSegments();
+                }
+                catch { }
+                if ((segs == null || segs.Count == 0) && fallback != null && fallback.Count > 0) segs = fallback;
+            }
+            if (segs == null || segs.Count == 0) return;
+            float[] lines = new float[segs.Count * 6];
+            int o = 0;
+            foreach (var s in segs) { lines[o++] = s[0].X; lines[o++] = s[0].Y; lines[o++] = s[0].Z; lines[o++] = s[1].X; lines[o++] = s[1].Y; lines[o++] = s[1].Z; }
+            // Small lift to avoid z-fighting with ground, keep depth test so walls correctly occlude (no wall-hack)
+            float yLift = 0.12f;
+            for (int i = 1; i < lines.Length; i += 3) lines[i] += yLift;
+            GL.Enable(EnableCap.DepthTest);
+            GL.Enable(EnableCap.CullFace);
+            GL.LineWidth(3.2f);
+            CamZoneRender.DrawLines(lines, Globals.GL_ColorRTP_Link);
+            GL.LineWidth(1.5f);
+        }
 
         private static void Render_Any_TriggerZone(ushort ID, GroupType groupType, BaseTriggerZoneMethodsForGL MethodsForGL, RenderMode mode, Vector4 mColor)
         {

@@ -20,7 +20,8 @@ namespace Re4QuadExtremeEditor.src
     /// Metodos uteis para serem usados;
     /// </summary>
     public static class Utils
-    {        
+    {
+        public static bool IsForceReloading = false;
 
         /// <summary>
         /// carrega os modelos 3d dos objetos ao iniciar o programa
@@ -754,13 +755,59 @@ namespace Re4QuadExtremeEditor.src
         /// </summary>
         public static void ReloadModels()
         {
-            DataBase.InternalModels?.ClearGL();
-            DataBase.ItemsModels?.ClearGL();
-            DataBase.EtcModels?.ClearGL();
-            DataBase.EnemiesModels?.ClearGL();
-            DataBase.QuadCustomModels?.ClearGL();
-            StartLoadObjsModels();
-
+            IsForceReloading = true;
+            try { System.IO.File.AppendAllText(@"C:\Temp\RTP_Debug.log", $"{DateTime.Now:HH:mm:ss} ReloadModels START FileRTP N={DataBase.FileRTP?.Nodes.Count} NodeRTP N={DataBase.NodeRTP?.Nodes.Count}\n"); } catch {}
+            try
+            {
+                DataBase.InternalModels?.ClearGL();
+                DataBase.ItemsModels?.ClearGL();
+                DataBase.EtcModels?.ClearGL();
+                DataBase.EnemiesModels?.ClearGL();
+                DataBase.QuadCustomModels?.ClearGL();
+                // Model/GL reload destroys native GL buffers; invalidate CamZoneRender's
+                // cached shader/VAO/VBO so the next draw rebuilds valid handles. Without this,
+                // drawing RTP links right after Force Reload crashes with an AccessViolation
+                // in GL.DrawArrays (fatal, no error log).
+                NewAgeTheRender.CamZoneRender.ResetGLState();
+                StartLoadObjsModels();
+            }
+            finally { IsForceReloading = false; }
+            // keep RTP rendering alive after Force Reload: re-attach MethodsForGL if it was cleared
+            // and force rebuild so new/Duplicate links appear without restart
+            try
+            {
+                if (DataBase.FileRTP != null)
+                {
+                    DataBase.FileRTP.RebuildRoutingMatrix();
+                    if (DataBase.NodeRTP != null)
+                    {
+                        DataBase.NodeRTP.MethodsForGL = DataBase.FileRTP.MethodsForGL;
+                        DataBase.NodeRTP.DisplayMethods = DataBase.FileRTP.DisplayMethods;
+                        DataBase.NodeRTP.MoveMethods = DataBase.FileRTP.MoveMethods;
+                        DataBase.NodeRTP.ChangeAmountMethods = DataBase.FileRTP.ChangeAmountMethods;
+                        DataBase.NodeRTP.PropertyMethods = DataBase.FileRTP.Methods;
+                        DataBase.FileRTP.SyncTreeNodesToKeys();
+                    }
+                }
+            }
+            catch (Exception ex) { try { System.IO.File.AppendAllText(@"C:\Temp\RTP_Debug.log", $"ReloadModels reattach ex: {ex.Message}\n"); } catch {} }
+            try { System.IO.File.AppendAllText(@"C:\Temp\RTP_Debug.log", $"{DateTime.Now:HH:mm:ss} ReloadModels END FileRTP N={DataBase.FileRTP?.Nodes.Count} D={DataBase.FileRTP?.Distances.Count} NodeRTP N={DataBase.NodeRTP?.Nodes.Count} segs={DataBase.FileRTP?.GetLinkSegmentsGL()?.Count}\n"); } catch {}
+            // force GL refresh so new RTP line appears immediately after Force Reload + Ctrl+D
+            try
+            {
+                foreach (System.Windows.Forms.Form f in System.Windows.Forms.Application.OpenForms)
+                {
+                    if (f.GetType().Name == "MainForm")
+                    {
+                        var m = f.GetType().GetMethod("UpdateGL", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                        m?.Invoke(f, null);
+                        var m2 = f.GetType().GetMethod("UpdateTreeViewObjs", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                        m2?.Invoke(f, null);
+                        break;
+                    }
+                }
+            }
+            catch { }
         }
 
 

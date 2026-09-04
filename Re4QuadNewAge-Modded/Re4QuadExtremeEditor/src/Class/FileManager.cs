@@ -1617,23 +1617,44 @@ namespace Re4QuadExtremeEditor.src.Class
         public static void LoadFileRTP(FileStream file)
         {
             RecentFiles.Note("RTP", file != null ? file.Name : null);
-            File_RTP_Group rtp = new File_RTP_Group();
-            byte[] all = new byte[file.Length];
-            file.Read(all, 0, (int)file.Length);
-            rtp.Load(all);
+            try
+            {
+                File_RTP_Group rtp = new File_RTP_Group();
+                byte[] all = new byte[file.Length];
+                file.Read(all, 0, (int)file.Length);
+                rtp.Load(all);
+                try { System.IO.File.AppendAllText(@"C:\Temp\RTP_Debug.log", $"{DateTime.Now:HH:mm:ss} LoadFileRTP OK N={rtp.Nodes.Count} D={rtp.Distances.Count} len={all.Length} FileRTP_prev={(DataBase.FileRTP != null ? DataBase.FileRTP.Nodes.Count.ToString() : "null")} CC0={RtpCountCC0(rtp)}\n"); } catch { }
 
-            DataBase.FileRTP = null;
-            DataBase.FileRTP = rtp;
+                DataBase.FileRTP = rtp;
 
-            DataBase.NodeRTP.Nodes.Clear();
-            DataBase.NodeRTP.PropertyMethods = DataBase.FileRTP.Methods;
-            DataBase.NodeRTP.DisplayMethods = DataBase.FileRTP.DisplayMethods;
-            DataBase.NodeRTP.MoveMethods = DataBase.FileRTP.MoveMethods;
-            DataBase.NodeRTP.ChangeAmountMethods = DataBase.FileRTP.ChangeAmountMethods;
-            DataBase.NodeRTP.MethodsForGL = DataBase.FileRTP.MethodsForGL;
+                if (DataBase.NodeRTP == null)
+                {
+                    Re4QuadExtremeEditor.src.Class.TreeNodeObj.NewAge_RTP_NodeGroup ng = new Re4QuadExtremeEditor.src.Class.TreeNodeObj.NewAge_RTP_NodeGroup();
+                    DataBase.NodeRTP = ng;
+                }
+                DataBase.NodeRTP.Nodes.Clear();
+                DataBase.NodeRTP.PropertyMethods = DataBase.FileRTP.Methods;
+                DataBase.NodeRTP.DisplayMethods = DataBase.FileRTP.DisplayMethods;
+                DataBase.NodeRTP.MoveMethods = DataBase.FileRTP.MoveMethods;
+                DataBase.NodeRTP.ChangeAmountMethods = DataBase.FileRTP.ChangeAmountMethods;
+                DataBase.NodeRTP.MethodsForGL = DataBase.FileRTP.MethodsForGL;
 
-            rtp.SyncTreeNodesToKeys();
+                rtp.SyncTreeNodesToKeys();
+            }
+            catch (Exception ex)
+            {
+                try { System.IO.File.AppendAllText(@"C:\Temp\RTP_Debug.log", $"{DateTime.Now:HH:mm:ss} LoadFileRTP EXCEPTION: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}\n"); } catch { }
+                throw;
+            }
         }
+
+        private static int RtpCountCC0(File_RTP_Group rtp)
+        {
+            int c = 0;
+            for (int i = 0; i < rtp.Nodes.Count; i++) if (rtp.Nodes[i].ConnectionCount == 0) c++;
+            return c;
+        }
+
 
         public static void LoadFileLIT_UHD(FileStream file, FileInfo fileInfo)
         {
@@ -1769,6 +1790,7 @@ namespace Re4QuadExtremeEditor.src.Class
 
             DataBase.FileLIT = null;
             DataBase.FileLIT = lit;
+            try { System.IO.File.AppendAllText(@"C:\Temp\RTP_Debug.log", $"{DateTime.Now:HH:mm:ss} LoadFileLIT set DataBase.FileLIT, groups={lit.LightGroups.Lines.Count} entries={lit.LightEntrys.Lines.Count} version={version}\n"); } catch {}
 
             DataBase.FileLIT.LightEntrys.ChangeAmountCallbackMethods = DataBase.NodeLIT_Entrys.ChangeAmountCallbackMethods;
 
@@ -2657,6 +2679,12 @@ namespace Re4QuadExtremeEditor.src.Class
         {
             if (DataBase.FileRTP != null)
             {
+                string report;
+                DataBase.FileRTP.ValidateAndFixForSave(out report);
+                if (!string.IsNullOrEmpty(report))
+                {
+                    try { System.Windows.Forms.MessageBox.Show("RTP auto-fix applied before save to prevent in-game crash:\n" + report, "RTP Fixed", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information); } catch { }
+                }
                 DataBase.FileRTP.WriteTo(stream);
             }
         }

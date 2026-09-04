@@ -178,6 +178,8 @@ namespace Re4QuadExtremeEditor.src
         public static bool RenderEtcmodelETS = true;
         public static bool RenderItemsITA = true;
         public static bool RenderEventsAEV = true;
+        // Snake ITA (ItemNumber 0x1000) renders as its ESL enemy model instead of the snake item
+        public static bool RenderSnakeAsEnemy = false;
         public static bool RenderFileFSE = true;
         public static bool RenderFileSAR = true;
         public static bool RenderFileEAR = true;
@@ -200,6 +202,7 @@ namespace Re4QuadExtremeEditor.src
         public static bool RenderItemTriggerZone = true;
         public static bool RenderItemPositionAtAssociatedObjectLocation = false;
         public static bool RenderItemTriggerRadius = true;
+        public static bool RenderItemAura = false;
 
         //special render
         public static bool RenderSpecialTriggerZone = true;
@@ -268,6 +271,12 @@ namespace Re4QuadExtremeEditor.src
 
         //opção de lista de inimigos extra sets.
         public static bool CreateEnemyExtraSegmentList = true;
+
+        // gizmo — ported from Re4QuadX for exact parity
+        public static EditorTool CurrentTool = EditorTool.Move;
+        public static GizmoSpace CurrentGizmoSpace = GizmoSpace.World;
+        // Mirrors ObjectMoveControl.MoveObjTypeSelected so gizmo can emulate the same yellow-arrow separation (item vs trigger zone)
+        public static MoveObjType CurrentMoveType = MoveObjType.Null;
 
         //cam grid
         public static bool CamGridEnable = false;

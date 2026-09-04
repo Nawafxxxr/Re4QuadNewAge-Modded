@@ -67,6 +67,19 @@ namespace Re4QuadExtremeEditor
         //movimentação camera no glControl
         MouseButtons MouseButtonsLeft = MouseButtons.Right; //botão para movimentação camera
         MouseButtons MouseButtonsRight = MouseButtons.Left; // botão para selecionar objeto
+        public void ApplyInvertedMouseButtons()
+        {
+            if (Globals.BackupConfigs != null && Globals.BackupConfigs.UseInvertedMouseButtons)
+            {
+                MouseButtonsLeft = MouseButtons.Left;
+                MouseButtonsRight = MouseButtons.Right;
+            }
+            else
+            {
+                MouseButtonsLeft = MouseButtons.Right;
+                MouseButtonsRight = MouseButtons.Left;
+            }
+        }
         #endregion
 
         // Property que fica no PropertyGrid quando não tem nada selecionado;
@@ -82,6 +95,7 @@ namespace Re4QuadExtremeEditor
             SplashScreen.StartSplashScreen();
 
             InitializeComponent();
+            try { this.Text = "RE4 QUAD EXTREME EDITOR [NEW AGE] | V1.2.5 FIX | YOUTUBE.COM/@JADERLINK"; } catch { }
 
             propertyGridObjs.SelectedObject = none;
             DataBase.SelectedNodes = treeViewObjs.SelectedNodes; // vinculo de referencia entra as listas
@@ -252,11 +266,8 @@ namespace Re4QuadExtremeEditor
             DragEnter += MainForm_DragEnter;
             DragDrop += MainForm_DragDrop;
 
-            if (Globals.BackupConfigs.UseInvertedMouseButtons)
-            {
-                MouseButtonsLeft = MouseButtons.Left; //botão para movimentação camera
-                MouseButtonsRight = MouseButtons.Right; // botão para selecionar objeto
-            }
+            ApplyInvertedMouseButtons();
+            try { toolStripMenuItemHideItemAura.Checked = !Globals.RenderItemAura; } catch { }
 
             //apenas para testes, cria um arquivo para tradução
             //src.JSON.LangFile.WriteToLangFile("SourceLang.json");
@@ -724,6 +735,10 @@ namespace Re4QuadExtremeEditor
                     isCDown = true;
                     myTimer.Enabled = true;
                     break;
+                case Keys.F8:
+                    e.Handled = true;
+                    OpenElementLibrary();
+                    break;
             }
 
             //holding the select button + arrow keys nudges the selected objects
@@ -980,6 +995,7 @@ namespace Re4QuadExtremeEditor
             // advance per-frame animations (selection pulse, gizmo glow)
             Re4QuadExtremeEditor.src.Class.ViewAnim.Tick();
             Re4QuadExtremeEditor.src.Class.Gizmo.Tick();
+            try { Re4QuadExtremeEditor.src.Class.Gizmo.UpdateScale(camera); } catch { }
 
             // smooth FOV transition: exponential ease toward the target,
             // frame-rate independent, rebuilds the projection while moving
@@ -1002,7 +1018,9 @@ namespace Re4QuadExtremeEditor
 
             if (!RenderSelectViewer)
             {
-                Re4QuadExtremeEditor.src.Class.Gizmo.Render(camMtx, ProjMatrix, camera.Front, camera.Right, camera.Up);
+                // exact Re4QuadX path: Move (arrows+planes) or Rotate (rings) with World/Local handling
+                try { Re4QuadExtremeEditor.src.Class.Gizmo.Render(camMtx, ProjMatrix, camera.Position, camera, Globals.CurrentTool, Globals.CurrentGizmoSpace); }
+                catch { Re4QuadExtremeEditor.src.Class.Gizmo.Render(camMtx, ProjMatrix, camera.Front, camera.Right, camera.Up); }
 
                 // bottom-right axis widget
                 Re4QuadExtremeEditor.src.Class.SelectionOverlay.RenderAxisWidget(camMtx, glControl.Width, glControl.Height);
@@ -1189,8 +1207,11 @@ namespace Re4QuadExtremeEditor
                 string snapText = Re4QuadExtremeEditor.src.Class.Gizmo.SnapStep > 0f
                     ? "   SNAP " + Re4QuadExtremeEditor.src.Class.Gizmo.SnapStep.ToString("0.##")
                     : "";
-                string posText = string.Format("X {0:F2}   Y {1:F2}   Z {2:F2}{3}",
-                    hudPivot.X, hudPivot.Y, hudPivot.Z, snapText);
+                string gizmoText = Re4QuadExtremeEditor.src.Class.Gizmo.Enabled
+                    ? string.Format("   {0} | {1}", Globals.CurrentTool, Globals.CurrentGizmoSpace)
+                    : "   GIZMO OFF";
+                string posText = string.Format("X {0:F2}   Y {1:F2}   Z {2:F2}{3}{4}",
+                    hudPivot.X, hudPivot.Y, hudPivot.Z, snapText, gizmoText);
                 if (posText != hudLastPosText)
                 {
                     hudLastPosText = posText;
@@ -2741,6 +2762,12 @@ namespace Re4QuadExtremeEditor
             glControl.Invalidate();
         }
 
+        private void toolStripMenuItemSnakeEnemyMode_Click(object sender, EventArgs e)
+        {
+            Globals.RenderSnakeAsEnemy = toolStripMenuItemSnakeEnemyMode.Checked;
+            glControl.Invalidate();
+        }
+
         #endregion
 
 
@@ -2839,10 +2866,29 @@ namespace Re4QuadExtremeEditor
 
                 if (rtpIds.Count > 0)
                 {
-                    rtpIds.Sort((a, b) => b.CompareTo(a));
-                    foreach (ushort id in rtpIds)
+                    // batch undo: one Ctrl+Z restores all deleted RTP nodes (snapshot before/after)
+                    var rtpFile = DataBase.FileRTP;
+                    Re4QuadExtremeEditor.src.Class.Files.RtpSnapshot rtpBefore = null;
+                    if (rtpFile != null) try { rtpBefore = rtpFile.CaptureSnapshot(); } catch { }
+                    bool oldSuppress = Re4QuadExtremeEditor.src.Class.Files.File_RTP_Group.SuppressUndo;
+                    Re4QuadExtremeEditor.src.Class.Files.File_RTP_Group.SuppressUndo = true;
+                    try
                     {
-                        try { DataBase.NodeRTP.ChangeAmountMethods.RemoveLineID(id); } catch { }
+                        rtpIds.Sort((a, b) => b.CompareTo(a));
+                        foreach (ushort id in rtpIds)
+                        {
+                            try { DataBase.NodeRTP.ChangeAmountMethods.RemoveLineID(id); } catch { }
+                        }
+                    }
+                    finally { Re4QuadExtremeEditor.src.Class.Files.File_RTP_Group.SuppressUndo = oldSuppress; }
+                    if (rtpFile != null && rtpBefore != null)
+                    {
+                        try
+                        {
+                            var rtpAfter = rtpFile.CaptureSnapshot();
+                            Re4QuadExtremeEditor.src.Class.UndoSystem.PushRtp(rtpFile, rtpBefore, rtpAfter, "delete " + rtpIds.Count + " RTP node(s)");
+                        }
+                        catch { }
                     }
                 }
 
@@ -3217,6 +3263,32 @@ namespace Re4QuadExtremeEditor
                     case Keys.D0:
                     case Keys.NumPad0: ApplySnapStep(0f); return true;
                 }
+                // Gizmo — exact Re4QuadX parity: T toggles Move/Rotate, Y toggles World/Local, Q toggles gizmo on/off
+                if (keyData == Keys.T)
+                {
+                    SetGizmoTool(Globals.CurrentTool == EditorTool.Move ? EditorTool.Rotate : EditorTool.Move);
+                    return true;
+                }
+                if (keyData == Keys.Y)
+                {
+                    ToggleGizmoSpace();
+                    return true;
+                }
+                if (keyData == Keys.Q)
+                {
+                    Re4QuadExtremeEditor.src.Class.Gizmo.Enabled = !Re4QuadExtremeEditor.src.Class.Gizmo.Enabled;
+                    // sync toolbar toggle button
+                    try
+                    {
+                        foreach (Control c in viewportGizmoBar.Controls)
+                            if (c is Button b && b.Tag as string == "toggle")
+                                UpdateGizmoToggleButton(b);
+                    }
+                    catch { }
+                    EditorConsole.Log("Gizmo " + (Re4QuadExtremeEditor.src.Class.Gizmo.Enabled ? "ON" : "OFF"));
+                    glControl.Invalidate();
+                    return true;
+                }
             }
 
             return base.ProcessCmdKey(ref msg, keyData);
@@ -3253,6 +3325,28 @@ namespace Re4QuadExtremeEditor
             else if (selectedObj is SpecialProperty special)
             {
                 var specialType = special.GetSpecialType();
+
+                // F2 on ITA "Enemy (ESL-Model)" property -> search Enemies
+                if (DataBase.FileITA != null && DataBase.FileITA.Lines.ContainsKey(special.GetInternalID()))
+                {
+                    var gridItem = propertyGridObjs.SelectedGridItem;
+                    if (gridItem != null && gridItem.Label == "Enemy (ESL-Model)")
+                    {
+                        SearchForm search = new SearchForm(ListBoxProperty.EnemiesList.Values.ToArray(),
+                            new UshortObjForListBox(special.ReturnUshortFirstSearchSelect(), ""));
+                        search.Search += (obj) =>
+                        {
+                            if (obj is UshortObjForListBox u && u.ID < 0xFFFF)
+                            {
+                                special.SetEnemyIDIntoPO(u.ID);
+                                propertyGridObjs.Refresh();
+                            }
+                        };
+                        search.ShowDialog();
+                        return;
+                    }
+                }
+
                 if (specialType == SpecialType.T03_Items || specialType == SpecialType.T11_ItemDependentEvents)
                 {
                     SearchForm search = new SearchForm(ListBoxProperty.ItemsList.Values.ToArray(), new UshortObjForListBox(special.ReturnUshortFirstSearchSelect(), ""));
@@ -3359,6 +3453,27 @@ namespace Re4QuadExtremeEditor
                 EditorConsole.Log("Enemy Templates error: " + ex.ToString());
                 MessageBox.Show("Enemy Templates error:\n\n" + ex.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private void OpenElementLibrary()
+        {
+            try
+            {
+                ElementLibraryWindow form = new ElementLibraryWindow();
+                System.Windows.Interop.WindowInteropHelper helper = new System.Windows.Interop.WindowInteropHelper(form);
+                helper.Owner = this.Handle;
+                form.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                EditorConsole.Log("Element Library error: " + ex.ToString());
+                MessageBox.Show("Element Library error:\n\n" + ex.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void toolStripMenuItemOpenElementLibrary_Click(object sender, EventArgs e)
+        {
+            OpenElementLibrary();
         }
 
         private void OptionsForm_ApplyLanguageLive()
@@ -3597,6 +3712,12 @@ namespace Re4QuadExtremeEditor
             glControl.Invalidate();
         }
 
+        private void toolStripMenuItemHideItemAura_Click(object sender, EventArgs e)
+        {
+            toolStripMenuItemHideItemAura.Checked = !toolStripMenuItemHideItemAura.Checked;
+            Globals.RenderItemAura = !toolStripMenuItemHideItemAura.Checked;
+            glControl.Invalidate();
+        }
 
         private void toolStripMenuItemItemPositionAtAssociatedObjectLocation_Click(object sender, EventArgs e)
         {
@@ -6352,6 +6473,7 @@ namespace Re4QuadExtremeEditor
 
         private void toolStripMenuItemSaveAs_DropDownOpening(object sender, EventArgs e)
         {
+            Re4QuadExtremeEditor.src.DebugLog.Write("SaveAsSubmenu OPEN FileLIT=" + (DataBase.FileLIT != null) + " FilePathLIT=" + Globals.FilePathLIT);
             toolStripMenuItemSaveAsESL.Enabled = DataBase.FileESL != null;
             toolStripMenuItemSaveAsETS.Enabled = DataBase.FileETS != null;
             toolStripMenuItemSaveAsITA.Enabled = DataBase.FileITA != null;
@@ -7392,6 +7514,7 @@ namespace Re4QuadExtremeEditor
 
         private void toolStripMenuItemSave_DropDownOpening(object sender, EventArgs e)
         {
+            Re4QuadExtremeEditor.src.DebugLog.Write("SaveSubmenu OPEN FileLIT=" + (DataBase.FileLIT != null) + " FilePathLIT=" + Globals.FilePathLIT);
             toolStripMenuItemSaveESL.Enabled = DataBase.FileESL != null;
             toolStripMenuItemSaveETS.Enabled = DataBase.FileETS != null;
             toolStripMenuItemSaveITA.Enabled = DataBase.FileITA != null;
@@ -8615,6 +8738,7 @@ namespace Re4QuadExtremeEditor
             toolStripMenuItemItemPositionAtAssociatedObjectLocation.Text = Lang.GetText(eLang.toolStripMenuItemItemPositionAtAssociatedObjectLocation);
             toolStripMenuItemHideItemTriggerZone.Text = Lang.GetText(eLang.toolStripMenuItemHideItemTriggerZone);
             toolStripMenuItemHideItemTriggerRadius.Text = Lang.GetText(eLang.toolStripMenuItemHideItemTriggerRadius);
+            toolStripMenuItemHideItemAura.Text = Lang.GetText(eLang.toolStripMenuItemHideItemAura);
             toolStripMenuItemHideSpecialTriggerZone.Text = Lang.GetText(eLang.toolStripMenuItemHideSpecialTriggerZone);
             toolStripMenuItemHideExtraObjs.Text = Lang.GetText(eLang.toolStripMenuItemHideExtraObjs);
             toolStripMenuItemHideOnlyWarpDoor.Text = Lang.GetText(eLang.toolStripMenuItemHideOnlyWarpDoor);
@@ -8729,6 +8853,13 @@ namespace Re4QuadExtremeEditor
         {
             // entrada de teclas para açoes especiais
             cameraMove.isControlDown = e.Control;
+
+            if (e.KeyCode == Keys.F8)
+            {
+                e.Handled = true;
+                OpenElementLibrary();
+                return;
+            }
 
             #region usado em propery
             // proibe a estrada de caracteres que não vão nos campos de numeros

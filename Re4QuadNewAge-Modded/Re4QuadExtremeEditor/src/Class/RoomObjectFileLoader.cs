@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Re4QuadExtremeEditor.src.Class;
 using Re4QuadExtremeEditor.src.Class.Enums;
+using Re4QuadExtremeEditor.src.Class.Files;
 using Re4QuadExtremeEditor.src.JSON;
 
 namespace Re4QuadExtremeEditor.src
@@ -74,10 +75,18 @@ namespace Re4QuadExtremeEditor.src
             Globals.FilePathAVL = null;
 
             // same for CAM/RTP so no stale routes/cameras linger from the previous room
-            FileManager.ClearCAM();
-            Globals.FilePathCAM = null;
-            FileManager.ClearRTP();
-            Globals.FilePathRTP = null;
+            // FIX: don't clear RTP/CAM during Force Reload - it discards unsaved Ctrl+D nodes (20->18) and causes crash when reopening RTP
+            if (Re4QuadExtremeEditor.src.Utils.IsForceReloading)
+            {
+                try { System.IO.File.AppendAllText(@"C:\Temp\RTP_Debug.log", $"{DateTime.Now:HH:mm:ss} RoomObjectFileLoader: SKIPPED ClearRTP/CAM during Force Reload (preserve N={DataBase.FileRTP?.Nodes.Count})\n"); } catch {}
+            }
+            else
+            {
+                FileManager.ClearCAM();
+                Globals.FilePathCAM = null;
+                FileManager.ClearRTP();
+                Globals.FilePathRTP = null;
+            }
 
             foreach (var pair in fileLoadActions)
             {
@@ -101,6 +110,7 @@ namespace Re4QuadExtremeEditor.src
                     EditorConsole.Warning($"No {extension.Substring(1)} file found in room directory. Skipping...");
                 }
             }
+
         }
 
         /// <summary>

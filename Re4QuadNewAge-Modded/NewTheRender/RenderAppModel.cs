@@ -150,6 +150,7 @@ namespace NewAgeTheRender
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             GL.Enable(EnableCap.AlphaTest);
             GL.AlphaFunc(AlphaFunction.Gequal, 0f);
+            GL.DepthMask(false);
 
             GL.Enable(EnableCap.CullFace);
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
@@ -165,6 +166,7 @@ namespace NewAgeTheRender
             DataShader.ShaderTriggerZoneBox.SetVector4("mColor", backColor);
             DataShader.BoxModel.Render();
 
+            GL.DepthMask(true);
             GL.Disable(EnableCap.Blend);
             GL.Disable(EnableCap.AlphaTest);
         }
@@ -189,6 +191,7 @@ namespace NewAgeTheRender
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             GL.Enable(EnableCap.AlphaTest);
             GL.AlphaFunc(AlphaFunction.Gequal, 0f);
+            GL.DepthMask(false);
 
             GL.Enable(EnableCap.CullFace);
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
@@ -217,6 +220,7 @@ namespace NewAgeTheRender
                 DataShader.CylinderFullModel.Render();
             }
   
+            GL.DepthMask(true);
             GL.Disable(EnableCap.Blend);
             GL.Disable(EnableCap.AlphaTest);
         }
