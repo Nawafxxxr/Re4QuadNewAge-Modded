@@ -32,7 +32,7 @@ A heavily enhanced and modernized fork of **Re4QuadNewAge**, built to make Resid
 
 ---
 
-# 🎮 About
+# About
 
 **Re4QuadNewAge-Modded** is a heavily modified and modernized version of [**Re4QuadNewAge**](https://github.com/JADERLINK/Re4QuadNewAge).
 
@@ -52,7 +52,7 @@ Instead of relying on multiple separate utilities for common editing tasks, Re4Q
 <tr>
 <td width="50%">
 
-### 🧩 Modern Editor
+### Modern Editor
 
 * Redesigned interface
 * Dark / Light themes
@@ -118,7 +118,7 @@ Instead of relying on multiple separate utilities for common editing tasks, Re4Q
 </td>
 <td width="50%">
 
-### ⚡ Quality of Life
+### Quality of Life
 
 * Keyboard shortcuts
 * Undo / Redo
@@ -132,8 +132,6 @@ Instead of relying on multiple separate utilities for common editing tasks, Re4Q
 </table>
 
 ---
-
-# 🚀 Features
 
 ## 🖥️ Modern User Interface
 
