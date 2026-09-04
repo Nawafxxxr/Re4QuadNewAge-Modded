@@ -22,7 +22,7 @@ A heavily enhanced and modernized fork of **Re4QuadNewAge**, built to make Resid
 
 ---
 
-## 📸 Preview
+## Preview
 
 <div align="center">
 
