@@ -17,10 +17,8 @@ A heavily enhanced and modernized fork of **Re4QuadNewAge**, built to make Resid
 <br>
 
 **[⬇ Download](https://github.com/Nawafxxxr/Re4QuadNewAge-Modded/releases/latest)**
-  •  
-**[🐛 Issues](https://github.com/Nawafxxxr/Re4QuadNewAge-Modded/issues)**
-  •  
-**[💡 Discussions](https://github.com/Nawafxxxr/Re4QuadNewAge-Modded/discussions)**
+    
+
 
 </div>
 
