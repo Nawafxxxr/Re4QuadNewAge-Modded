@@ -17,8 +17,6 @@ A heavily enhanced and modernized fork of **Re4QuadNewAge**, built to make Resid
 <br>
 
 **[⬇ Download](https://github.com/Nawafxxxr/Re4QuadNewAge-Modded/releases/latest)**
-    
-
 
 </div>
 
@@ -626,55 +624,6 @@ Other issues may depend on:
 If you encounter a problem, please open an issue and include as much information as possible.
 
 ---
-
-# 🐛 Bug Reports
-
-Found a bug?
-
-Please open an issue:
-
-**[Report a Bug](https://github.com/Nawafxxxr/Re4QuadNewAge-Modded/issues/new)**
-
-When reporting an issue, please include:
-
-* Game version
-* File format
-* What you were doing
-* What happened
-* Expected behavior
-* Error message
-* Screenshot if possible
-
-This makes debugging significantly easier.
-
----
-
-# 💡 Feature Requests
-
-Have an idea for a new feature?
-
-Open a feature request and describe:
-
-* What the feature should do
-* Why it would be useful
-* How it could improve the modding workflow
-* Examples from other tools if applicable
-
----
-
-# 🤝 Contributing
-
-Contributions are welcome.
-
-If you want to improve the project:
-
-1. Fork the repository.
-2. Create a new branch.
-3. Make your changes.
-4. Test your changes.
-5. Submit a Pull Request.
-
-Please keep changes focused and clearly documented.
 
 ---
 
