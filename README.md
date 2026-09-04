@@ -354,9 +354,7 @@ Supported visibility management includes:
 
 ### Isolation
 
-Use:
-
-`H`
+Use: `H`
 
 to isolate the selected object(s).
 
